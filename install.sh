@@ -40,6 +40,11 @@ DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-isp_billing}"
 RADIUS_DB_NAME="${RADIUS_DB_NAME:-radius}"
 DB_USER="${DB_USER:-isp_billing}"
+# On a re-run, reuse the password from the existing .env — ALTER ROLE below
+# would otherwise reset the role to a new password the untouched .env lacks.
+if [ -z "${DB_PASS:-}" ] && [ -f "$ROOT/backend/.env" ]; then
+  DB_PASS="$(sed -n 's/^DB_PASSWORD=//p' "$ROOT/backend/.env" | head -n1 | tr -d '"')"
+fi
 DB_PASS="${DB_PASS:-$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24 || true)}"
 API_URL="${API_URL:-http://localhost:8000/api}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:3000}"
@@ -82,7 +87,8 @@ create_databases() {
   # SQL is piped via stdin (-f -) so quoting survives su/sudo intact.
   run_psql() {
     if command -v sudo >/dev/null 2>&1 && sudo -n -u postgres true 2>/dev/null; then
-      printf '%s\n' "$1" | sudo -u postgres psql -v ON_ERROR_STOP=1 -f -
+      # cd / so psql does not warn when postgres cannot read the caller's cwd
+      printf '%s\n' "$1" | (cd / && sudo -u postgres psql -v ON_ERROR_STOP=1 -f -)
     elif [ "$(id -u)" = 0 ] && id postgres >/dev/null 2>&1; then
       printf '%s\n' "$1" | su - postgres -c "psql -v ON_ERROR_STOP=1 -f -"
     else
