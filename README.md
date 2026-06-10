@@ -68,7 +68,21 @@ Customer status = active, expiry extended by plan validity
 RADIUS access re-enabled (reject row removed, attributes re-provisioned)
 ```
 
-## Setup
+## Quick install
+
+```bash
+./install.sh             # everything, with demo data
+./install.sh --no-seed   # production (no demo customers)
+```
+
+Full documentation in [`docs/`](docs/):
+
+- [Installation & production deployment](docs/INSTALL.md)
+- [Configuration reference (env vars, settings, permissions)](docs/CONFIGURATION.md)
+- [API reference](docs/API.md)
+- [FreeRADIUS / MikroTik / SmartOLT integration guide](docs/INTEGRATIONS.md)
+
+## Manual setup
 
 ### Backend
 
