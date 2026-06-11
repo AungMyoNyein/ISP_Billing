@@ -42,6 +42,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  function toggleGroup(label: string) {
+    setCollapsed((c) => ({ ...c, [label]: !c[label] }));
+  }
 
   useEffect(() => {
     if (!getToken()) {
@@ -83,14 +88,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {nav.map((item) =>
             item.children ? (
               <div key={item.label} className="mb-1">
-                <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  {item.icon} {item.label}
-                </p>
-                {item.children.map((child) => (
-                  <NavLink key={child.href} href={child.href} active={pathname.startsWith(child.href)}>
-                    {child.label}
-                  </NavLink>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(item.label)}
+                  className="flex w-full items-center justify-between rounded-lg px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600"
+                >
+                  <span>
+                    {item.icon} {item.label}
+                  </span>
+                  <span className="text-[10px]">{collapsed[item.label] ? "▸" : "▾"}</span>
+                </button>
+                {!collapsed[item.label] &&
+                  item.children.map((child) => (
+                    <NavLink key={child.href} href={child.href} active={pathname.startsWith(child.href)}>
+                      {child.label}
+                    </NavLink>
+                  ))}
               </div>
             ) : (
               <NavLink key={item.href} href={item.href!} active={pathname.startsWith(item.href!)}>
