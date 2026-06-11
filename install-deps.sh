@@ -136,7 +136,7 @@ fi
 if [ "$WITH_FREERADIUS" = 1 ]; then
   info "Installing FreeRADIUS + PostgreSQL SQL module…"
   apt-get install -y -qq freeradius freeradius-postgresql freeradius-utils >/dev/null
-  ok "FreeRADIUS installed (configure the sql module — see docs/INTEGRATIONS.md)"
+  ok "FreeRADIUS installed (./install.sh will auto-configure the sql module)"
 fi
 
 # ---------------------------------------------------------------- summary

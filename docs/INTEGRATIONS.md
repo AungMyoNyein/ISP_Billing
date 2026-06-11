@@ -22,6 +22,16 @@ online-user count.
 
 ### FreeRADIUS configuration
 
+> **Automatic:** when FreeRADIUS is installed on the same machine
+> (`sudo ./install-deps.sh --with-freeradius`), `./install.sh` performs
+> steps 1–3 below itself: it writes `mods-available/sql` with the
+> installer's DB credentials (the distro original is kept as
+> `sql.dist`), enables the module, activates `sql` in the
+> `authorize`/`accounting`/`session` sections of the default site and
+> restarts the service. Post-auth results are logged to `radpostauth`.
+> Pass `--no-freeradius` to skip this, e.g. when FreeRADIUS runs on a
+> different host — then follow the manual steps below there.
+
 1. Enable the SQL module:
 
    ```bash

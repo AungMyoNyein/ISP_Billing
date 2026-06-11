@@ -130,8 +130,10 @@ Set `FRONTEND_URL` in the backend `.env` to the frontend origin for CORS.
 
 ## FreeRADIUS integration
 
-Point FreeRADIUS's `sql` module at the `radius` database. The billing
-system maintains:
+Point FreeRADIUS's `sql` module at the `radius` database — done
+automatically by `./install.sh` when FreeRADIUS is installed locally
+(`sudo ./install-deps.sh --with-freeradius`); use `--no-freeradius` to
+opt out, e.g. for a remote RADIUS host. The billing system maintains:
 
 - `radcheck` — `Cleartext-Password`, and `Auth-Type := Reject` while suspended
 - `radreply` — `Mikrotik-Rate-Limit`, `Session-Timeout`, `Idle-Timeout` from the plan
