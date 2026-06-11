@@ -147,6 +147,10 @@ and `FRONTEND_URL` (HTTPS strongly recommended — tokens travel in the
 
 ### Frontend — systemd unit
 
+`install.sh` creates and enables this unit automatically when it runs
+with root access on a systemd host (skip with `--no-service`). The
+manual equivalent:
+
 ```ini
 # /etc/systemd/system/isp-billing-ui.service
 [Unit]
