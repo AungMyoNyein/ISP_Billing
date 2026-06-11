@@ -119,6 +119,9 @@ install_backend() {
   info "Installing backend (Laravel)…"
   cd "$ROOT/backend"
 
+  # As root, Composer warns and disables plugins unless explicitly allowed.
+  [ "$(id -u)" = 0 ] && export COMPOSER_ALLOW_SUPERUSER=1
+
   composer install --no-interaction --prefer-dist --no-progress
 
   if [ ! -f .env ]; then
