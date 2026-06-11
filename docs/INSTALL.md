@@ -148,8 +148,11 @@ and `FRONTEND_URL` (HTTPS strongly recommended — tokens travel in the
 ### Frontend — systemd unit
 
 `install.sh` creates and enables this unit automatically when it runs
-with root access on a systemd host (skip with `--no-service`). The
-manual equivalent:
+with root access on a systemd host (skip with `--no-service`), plus an
+`isp-billing-api` unit that serves the Laravel backend on
+`BACKEND_URL` via `php artisan serve` — replace that one with the
+nginx + php-fpm setup above for serious traffic. The manual
+equivalent of the UI unit:
 
 ```ini
 # /etc/systemd/system/isp-billing-ui.service
@@ -189,5 +192,6 @@ which also removes the need for CORS).
 git pull
 cd backend && composer install --no-dev && php artisan migrate --force \
   && php artisan config:cache && php artisan route:cache
+systemctl restart isp-billing-api   # if using the installer's artisan-serve unit
 cd ../frontend && npm install && npm run build && systemctl restart isp-billing-ui
 ```

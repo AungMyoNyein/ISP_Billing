@@ -61,6 +61,7 @@ DB_PASS="${DB_PASS:-$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24 || 
 # proxies /api to the backend (BACKEND_URL), so remote browsers work
 # without CORS or exposing the Laravel server.
 API_URL="${API_URL:-/api}"
+BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:3000}"
 
 ok()   { printf '\033[32m✔\033[0m %s\n' "$*"; }
@@ -69,6 +70,16 @@ warn() { printf '\033[33m⚠ %s\033[0m\n' "$*" >&2; }
 die()  { printf '\033[31m✘ %s\033[0m\n' "$*" >&2; exit 1; }
 
 need() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1 — $2"; }
+
+root_run() {
+  if [ "$(id -u)" = 0 ]; then "$@"
+  elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo "$@"
+  else return 1; fi
+}
+
+# Shared by the two service installers below.
+have_systemd() { command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; }
+url_port() { printf '%s' "$1" | sed -n 's|.*:\([0-9][0-9]*\)$|\1|p'; }
 
 # ---------------------------------------------------------------- checks
 info "Checking prerequisites…"
@@ -293,41 +304,35 @@ install_frontend() {
   ok "Frontend built"
 }
 
-# ------------------------------------------------------- frontend service
-# Creates the isp-billing-ui systemd unit that docs/INSTALL.md's upgrade
-# flow (`systemctl restart isp-billing-ui`) assumes exists.
-install_ui_service() {
-  if ! command -v systemctl >/dev/null 2>&1 || [ ! -d /run/systemd/system ]; then
-    info "systemd not detected — start the UI manually: cd frontend && npm start"
+# ------------------------------------------------------------ services
+# Creates the systemd units that docs/INSTALL.md's upgrade flow
+# (`systemctl restart isp-billing-ui` / `isp-billing-api`) assumes exist.
+install_service() {
+  local name="$1" desc="$2" workdir="$3" port="$4" exec_start="$5" extra_env="${6:-}"
+
+  if ! have_systemd; then
+    info "systemd not detected — start $desc manually (docs/INSTALL.md)"
     return 0
   fi
-
-  root_run() {
-    if [ "$(id -u)" = 0 ]; then "$@"
-    elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo "$@"
-    else return 1; fi
-  }
   if ! root_run true 2>/dev/null; then
-    warn "No root access — create the isp-billing-ui unit manually (docs/INSTALL.md) or re-run with sudo"
+    warn "No root access — create the $name unit manually (docs/INSTALL.md) or re-run with sudo"
     return 0
   fi
 
-  local port owner npm_bin
-  port="$(printf '%s' "$FRONTEND_URL" | sed -n 's|.*:\([0-9][0-9]*\)$|\1|p')"
-  port="${port:-3000}"
+  local owner
   owner="$(stat -c %U "$ROOT")"
-  npm_bin="$(command -v npm)"
 
-  info "Installing isp-billing-ui.service (port $port, user $owner)…"
-  root_run tee /etc/systemd/system/isp-billing-ui.service >/dev/null <<EOF
+  info "Installing $name.service (port $port, user $owner)…"
+  root_run tee "/etc/systemd/system/$name.service" >/dev/null <<EOF
 [Unit]
-Description=ISP Billing UI (Next.js)
-After=network.target
+Description=$desc
+After=network.target postgresql.service
 
 [Service]
-WorkingDirectory=$ROOT/frontend
+WorkingDirectory=$workdir
 Environment=PORT=$port
-ExecStart=$npm_bin start
+${extra_env:+Environment=$extra_env
+}ExecStart=$exec_start
 Restart=always
 User=$owner
 
@@ -335,17 +340,32 @@ User=$owner
 WantedBy=multi-user.target
 EOF
   root_run systemctl daemon-reload
-  root_run systemctl enable isp-billing-ui >/dev/null 2>&1 || true
-  if root_run systemctl restart isp-billing-ui; then
-    ok "isp-billing-ui service running (port $port) — restart after upgrades: systemctl restart isp-billing-ui"
+  root_run systemctl enable "$name" >/dev/null 2>&1 || true
+  if root_run systemctl restart "$name"; then
+    ok "$name service running (port $port) — restart after upgrades: systemctl restart $name"
   else
-    warn "isp-billing-ui failed to start — check: journalctl -u isp-billing-ui (is port $port free?)"
+    warn "$name failed to start — check: journalctl -u $name (is port $port free?)"
   fi
+}
+
+install_api_service() {
+  local port
+  port="$(url_port "$BACKEND_URL")"
+  install_service isp-billing-api "ISP Billing API (Laravel)" "$ROOT/backend" "${port:-8000}" \
+    "$(command -v php) artisan serve --host 127.0.0.1 --port ${port:-8000}"
+}
+
+install_ui_service() {
+  local port
+  port="$(url_port "$FRONTEND_URL")"
+  install_service isp-billing-ui "ISP Billing UI (Next.js)" "$ROOT/frontend" "${port:-3000}" \
+    "$(command -v npm) start" "BACKEND_URL=$BACKEND_URL"
 }
 
 # ---------------------------------------------------------------- run
 [ "$DO_BACKEND" = 1 ] && { create_databases; install_backend; }
 [ "$DO_BACKEND" = 1 ] && [ "$DO_RADIUS_CONF" = 1 ] && configure_freeradius
+[ "$DO_BACKEND" = 1 ] && [ "$DO_SERVICE" = 1 ] && install_api_service
 [ "$DO_FRONTEND" = 1 ] && install_frontend
 [ "$DO_FRONTEND" = 1 ] && [ "$DO_SERVICE" = 1 ] && install_ui_service
 
