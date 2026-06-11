@@ -7,7 +7,7 @@ import { Button, Card, ErrorNote, PageHeader, Table } from "@/components/ui";
 
 interface Backup { name: string; size_bytes: number; created_at: string }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export default function BackupPage() {
   const [backups, setBackups] = useState<Backup[]>([]);

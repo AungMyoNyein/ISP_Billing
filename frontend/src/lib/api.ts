@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export class ApiError extends Error {
   status: number;
@@ -25,7 +25,12 @@ export async function api<T = unknown>(
   path: string,
   options: { method?: string; body?: unknown; params?: Record<string, string | number | boolean | undefined | null> } = {},
 ): Promise<T> {
-  const url = new URL(API_URL + path);
+  // API_URL may be relative (proxied via the Next.js rewrite), so anchor
+  // it to the current origin in the browser.
+  const url = new URL(
+    API_URL + path,
+    typeof window !== "undefined" ? window.location.origin : "http://localhost:3001",
+  );
   for (const [key, value] of Object.entries(options.params ?? {})) {
     if (value !== undefined && value !== null && value !== "") {
       url.searchParams.set(key, String(value));
