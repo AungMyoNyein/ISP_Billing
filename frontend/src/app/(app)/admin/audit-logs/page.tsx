@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePaginated } from "@/hooks/usePaginated";
 import { formatDateTime } from "@/lib/format";
-import { Card, ErrorNote, PageHeader, Pagination, Table, inputBaseCls, inputCls } from "@/components/ui";
+import { Card, ErrorNote, PageHeader, Pagination, Table, inputBaseCls } from "@/components/ui";
 import type { AuditLog } from "@/lib/types";
 
 export default function AuditLogsPage() {
