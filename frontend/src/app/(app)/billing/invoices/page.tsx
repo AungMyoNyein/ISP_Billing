@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { usePaginated } from "@/hooks/usePaginated";
 import { formatDate, formatMoney } from "@/lib/format";
-import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Pagination, Table, inputCls } from "@/components/ui";
+import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Pagination, Table, inputBaseCls, inputCls } from "@/components/ui";
 import type { Invoice } from "@/lib/types";
 
 export default function InvoicesPage() {
@@ -41,15 +41,15 @@ function InvoicesInner() {
             <input className={inputCls} placeholder="Search invoice #, customer…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
             <Button type="submit" variant="secondary">Search</Button>
           </form>
-          <select className={`${inputCls} w-auto`} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select className={`${inputBaseCls} w-auto`} value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All statuses</option>
             <option value="paid">Paid</option>
             <option value="unpaid">Unpaid</option>
             <option value="suspended">Suspended</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <input className={`${inputCls} w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} title="Billing date from" />
-          <input className={`${inputCls} w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} title="Billing date to" />
+          <input className={`${inputBaseCls} w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} title="Billing date from" />
+          <input className={`${inputBaseCls} w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} title="Billing date to" />
         </div>
 
         <Table

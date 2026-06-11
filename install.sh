@@ -11,6 +11,7 @@
 #   ./install.sh --backend-only  # backend + databases only
 #   ./install.sh --frontend-only # frontend only
 #   ./install.sh --no-freeradius # skip FreeRADIUS sql module auto-config
+#   ./install.sh --no-service    # skip isp-billing-ui systemd unit setup
 #
 # If a local FreeRADIUS 3 install is detected (install-deps.sh
 # --with-freeradius), its sql module is pointed at the radius database
@@ -31,6 +32,7 @@ SEED=1
 DO_BACKEND=1
 DO_FRONTEND=1
 DO_RADIUS_CONF=1
+DO_SERVICE=1
 
 for arg in "$@"; do
   case "$arg" in
@@ -38,6 +40,7 @@ for arg in "$@"; do
     --backend-only) DO_FRONTEND=0 ;;
     --frontend-only) DO_BACKEND=0 ;;
     --no-freeradius) DO_RADIUS_CONF=0 ;;
+    --no-service) DO_SERVICE=0 ;;
     -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown option: $arg (see --help)"; exit 1 ;;
   esac
@@ -290,10 +293,61 @@ install_frontend() {
   ok "Frontend built"
 }
 
+# ------------------------------------------------------- frontend service
+# Creates the isp-billing-ui systemd unit that docs/INSTALL.md's upgrade
+# flow (`systemctl restart isp-billing-ui`) assumes exists.
+install_ui_service() {
+  if ! command -v systemctl >/dev/null 2>&1 || [ ! -d /run/systemd/system ]; then
+    info "systemd not detected — start the UI manually: cd frontend && npm start"
+    return 0
+  fi
+
+  root_run() {
+    if [ "$(id -u)" = 0 ]; then "$@"
+    elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo "$@"
+    else return 1; fi
+  }
+  if ! root_run true 2>/dev/null; then
+    warn "No root access — create the isp-billing-ui unit manually (docs/INSTALL.md) or re-run with sudo"
+    return 0
+  fi
+
+  local port owner npm_bin
+  port="$(printf '%s' "$FRONTEND_URL" | sed -n 's|.*:\([0-9][0-9]*\)$|\1|p')"
+  port="${port:-3000}"
+  owner="$(stat -c %U "$ROOT")"
+  npm_bin="$(command -v npm)"
+
+  info "Installing isp-billing-ui.service (port $port, user $owner)…"
+  root_run tee /etc/systemd/system/isp-billing-ui.service >/dev/null <<EOF
+[Unit]
+Description=ISP Billing UI (Next.js)
+After=network.target
+
+[Service]
+WorkingDirectory=$ROOT/frontend
+Environment=PORT=$port
+ExecStart=$npm_bin start
+Restart=always
+User=$owner
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  root_run systemctl daemon-reload
+  root_run systemctl enable isp-billing-ui >/dev/null 2>&1 || true
+  if root_run systemctl restart isp-billing-ui; then
+    ok "isp-billing-ui service running (port $port) — restart after upgrades: systemctl restart isp-billing-ui"
+  else
+    warn "isp-billing-ui failed to start — check: journalctl -u isp-billing-ui (is port $port free?)"
+  fi
+}
+
 # ---------------------------------------------------------------- run
 [ "$DO_BACKEND" = 1 ] && { create_databases; install_backend; }
 [ "$DO_BACKEND" = 1 ] && [ "$DO_RADIUS_CONF" = 1 ] && configure_freeradius
 [ "$DO_FRONTEND" = 1 ] && install_frontend
+[ "$DO_FRONTEND" = 1 ] && [ "$DO_SERVICE" = 1 ] && install_ui_service
 
 cat <<EOF
 

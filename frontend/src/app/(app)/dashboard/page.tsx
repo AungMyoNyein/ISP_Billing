@@ -71,12 +71,15 @@ function BarChart({ data, format, color }: {
 }) {
   if (data.length === 0) return <p className="py-8 text-center text-sm text-slate-400">No data yet.</p>;
   const max = Math.max(...data.map((d) => d.value), 1);
+  // bar heights are in px: a % height would resolve against the auto-height
+  // flex column and collapse every bar to its 2px floor
+  const barArea = 128;
   return (
     <div className="flex h-44 items-end gap-3">
       {data.map((d) => (
         <div key={d.label} className="group flex flex-1 flex-col items-center gap-1" title={format(d.value)}>
           <span className="text-[10px] text-slate-400 opacity-0 transition group-hover:opacity-100">{format(d.value)}</span>
-          <div className={`w-full rounded-t ${color}`} style={{ height: `${Math.max((d.value / max) * 100, 2)}%` }} />
+          <div className={`w-full rounded-t ${color}`} style={{ height: `${Math.max((d.value / max) * barArea, 3)}px` }} />
           <span className="text-xs text-slate-500">{d.label}</span>
         </div>
       ))}

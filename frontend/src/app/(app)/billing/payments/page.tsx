@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePaginated } from "@/hooks/usePaginated";
 import { formatDateTime, formatMoney } from "@/lib/format";
-import { Button, Card, ErrorNote, PageHeader, Pagination, Table, inputCls } from "@/components/ui";
+import { Button, Card, ErrorNote, PageHeader, Pagination, Table, inputBaseCls, inputCls } from "@/components/ui";
 import type { Payment } from "@/lib/types";
 
 export default function PaymentsPage() {
@@ -28,15 +28,15 @@ export default function PaymentsPage() {
             <input className={inputCls} placeholder="Search payment #, reference, customer…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
             <Button type="submit" variant="secondary">Search</Button>
           </form>
-          <select className={`${inputCls} w-auto`} value={method} onChange={(e) => setMethod(e.target.value)}>
+          <select className={`${inputBaseCls} w-auto`} value={method} onChange={(e) => setMethod(e.target.value)}>
             <option value="">All methods</option>
             <option value="cash">Cash</option>
             <option value="bank_transfer">Bank Transfer</option>
             <option value="mobile_money">Mobile Money</option>
             <option value="other">Other</option>
           </select>
-          <input className={`${inputCls} w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <input className={`${inputCls} w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <input className={`${inputBaseCls} w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input className={`${inputBaseCls} w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
 
         <Table

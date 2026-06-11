@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { usePaginated } from "@/hooks/usePaginated";
 import { formatDate } from "@/lib/format";
-import { Badge, Button, Card, ErrorNote, PageHeader, Pagination, Table, inputCls } from "@/components/ui";
+import { Badge, Button, Card, ErrorNote, PageHeader, Pagination, Table, inputBaseCls, inputCls } from "@/components/ui";
 import type { Customer, ServicePlan } from "@/lib/types";
 
 interface FilterOptions { dn_zones: string[]; sn_odbs: string[]; statuses: string[] }
@@ -62,19 +62,19 @@ function CustomersInner() {
             />
             <Button type="submit" variant="secondary">Search</Button>
           </form>
-          <select className={`${inputCls} w-auto`} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select className={`${inputBaseCls} w-auto`} value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All statuses</option>
             {options?.statuses.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <select className={`${inputCls} w-auto`} value={dnZone} onChange={(e) => setDnZone(e.target.value)}>
+          <select className={`${inputBaseCls} w-auto`} value={dnZone} onChange={(e) => setDnZone(e.target.value)}>
             <option value="">All DN zones</option>
             {options?.dn_zones.map((z) => <option key={z} value={z}>{z}</option>)}
           </select>
-          <select className={`${inputCls} w-auto`} value={snOdb} onChange={(e) => setSnOdb(e.target.value)}>
+          <select className={`${inputBaseCls} w-auto`} value={snOdb} onChange={(e) => setSnOdb(e.target.value)}>
             <option value="">All SN/ODB</option>
             {options?.sn_odbs.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
-          <select className={`${inputCls} w-auto`} value={planId} onChange={(e) => setPlanId(e.target.value)}>
+          <select className={`${inputBaseCls} w-auto`} value={planId} onChange={(e) => setPlanId(e.target.value)}>
             <option value="">All plans</option>
             {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>

@@ -80,8 +80,12 @@ export function Field({ label, children, error }: { label: string; children: Rea
   );
 }
 
-export const inputCls =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100";
+// width-free variant for inline filter bars — `w-auto` can't override the
+// `w-full` in inputCls because Tailwind emits w-full later in the stylesheet
+export const inputBaseCls =
+  "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100";
+
+export const inputCls = `w-full ${inputBaseCls}`;
 
 export function Modal({ title, open, onClose, children, wide }: {
   title: string; open: boolean; onClose: () => void; children: ReactNode; wide?: boolean;
