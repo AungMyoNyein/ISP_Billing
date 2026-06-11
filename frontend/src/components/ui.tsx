@@ -131,7 +131,7 @@ export function Table({ headers, children, loading, empty }: {
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-100 text-slate-800">
           {loading ? (
             <tr><td colSpan={headers.length} className="px-4 py-10 text-center text-slate-400">Loading…</td></tr>
           ) : empty ? (
