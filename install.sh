@@ -20,7 +20,8 @@
 #   DB_HOST=127.0.0.1  DB_PORT=5432
 #   DB_NAME=isp_billing  RADIUS_DB_NAME=radius
 #   DB_USER=isp_billing  DB_PASS=<generated>
-#   API_URL=http://localhost:8000/api
+#   API_URL=/api                 (proxied to BACKEND_URL by Next.js)
+#   BACKEND_URL=http://127.0.0.1:8000
 #   FRONTEND_URL=http://localhost:3000
 #
 set -euo pipefail
@@ -53,7 +54,10 @@ if [ -z "${DB_PASS:-}" ] && [ -f "$ROOT/backend/.env" ]; then
   DB_PASS="$(sed -n 's/^DB_PASSWORD=//p' "$ROOT/backend/.env" | head -n1 | tr -d '"')"
 fi
 DB_PASS="${DB_PASS:-$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24 || true)}"
-API_URL="${API_URL:-http://localhost:8000/api}"
+# Relative by default: the browser calls the frontend origin and Next.js
+# proxies /api to the backend (BACKEND_URL), so remote browsers work
+# without CORS or exposing the Laravel server.
+API_URL="${API_URL:-/api}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:3000}"
 
 ok()   { printf '\033[32m✔\033[0m %s\n' "$*"; }

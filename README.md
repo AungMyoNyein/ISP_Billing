@@ -112,11 +112,15 @@ This runs `billing:process` hourly (suspend overdue, expire past-due).
 ```bash
 cd frontend
 npm install
-echo 'NEXT_PUBLIC_API_URL=http://localhost:8000/api' > .env.local
+echo 'NEXT_PUBLIC_API_URL=/api' > .env.local
 npm run dev     # or: npm run build && npm start
 ```
 
-Set `FRONTEND_URL` in the backend `.env` to the frontend origin for CORS.
+API calls go through a Next.js rewrite (`/api/*` → `BACKEND_URL`,
+default `http://127.0.0.1:8000`), so no CORS setup is needed and the
+backend can stay on loopback. To call the backend directly instead,
+set `NEXT_PUBLIC_API_URL` to its full URL and `FRONTEND_URL` in the
+backend `.env` to the frontend origin for CORS.
 
 ### Default logins (seeded)
 

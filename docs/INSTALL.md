@@ -45,9 +45,15 @@ The script:
 Override defaults via env vars, e.g.:
 
 ```bash
-DB_HOST=10.0.0.5 DB_PASS=secret API_URL=https://billing.example.com/api \
+DB_HOST=10.0.0.5 DB_PASS=secret \
 FRONTEND_URL=https://billing.example.com ./install.sh --no-seed
 ```
+
+The frontend calls the API at the relative `/api` path by default —
+Next.js proxies it to the backend (`BACKEND_URL`, default
+`http://127.0.0.1:8000`), so the UI works from any hostname/IP with no
+CORS setup. Set `API_URL` to a full URL only if browsers should hit
+the backend directly.
 
 If the script cannot reach PostgreSQL as a superuser it falls back to
 `psql -U postgres` over TCP; set `PGSUPER_USER` / `PGSUPER_PASS` if your
@@ -84,10 +90,14 @@ php artisan serve                # dev server on :8000
 ```bash
 cd frontend
 npm install
-echo 'NEXT_PUBLIC_API_URL=http://localhost:8000/api' > .env.local
+echo 'NEXT_PUBLIC_API_URL=/api' > .env.local
 npm run build
 npm start                        # production server on :3000 (PORT=xxxx to change)
 ```
+
+`/api` is proxied to the backend by Next.js (`BACKEND_URL`, default
+`http://127.0.0.1:8000` — set it when running `npm run build` if the
+backend runs elsewhere).
 
 ### 4. Scheduler (required)
 
