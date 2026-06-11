@@ -126,7 +126,25 @@ if node_ok; then
   ok "Node.js $(node -v) already installed"
 else
   info "Installing Node.js ${NODE_MAJOR}.x from NodeSource…"
-  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >/dev/null
+  # Add the repo directly instead of piping their setup script into bash —
+  # that script calls bare `apt`, which warns when run non-interactively.
+  install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+    | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
+  cat > /etc/apt/sources.list.d/nodesource.sources <<EOF
+Types: deb
+URIs: https://deb.nodesource.com/node_${NODE_MAJOR}.x
+Suites: nodistro
+Components: main
+Signed-By: /etc/apt/keyrings/nodesource.gpg
+EOF
+  rm -f /etc/apt/sources.list.d/nodesource.list
+  # Make sure nsolid never wins over nodejs (same pin NodeSource ships).
+  printf 'Package: nsolid\nPin: origin deb.nodesource.com\nPin-Priority: 600\n' \
+    > /etc/apt/preferences.d/nsolid
+  printf 'Package: nodejs\nPin: origin deb.nodesource.com\nPin-Priority: 600\n' \
+    > /etc/apt/preferences.d/nodejs
+  apt-get update -qq
   apt-get install -y -qq nodejs >/dev/null
   node_ok || die "Node.js install failed (need 18.18+, got $(node -v 2>/dev/null || echo none))"
   ok "Node.js $(node -v) installed"
