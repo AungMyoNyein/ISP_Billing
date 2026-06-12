@@ -30,6 +30,10 @@ const badgeColors: Record<string, string> = {
   expired: "bg-orange-100 text-orange-700",
   disabled: "bg-slate-200 text-slate-600",
   cancelled: "bg-slate-200 text-slate-600",
+  "ping ok": "bg-emerald-100 text-emerald-700",
+  "CoA ok": "bg-emerald-100 text-emerald-700",
+  "ping fail": "bg-rose-100 text-rose-700",
+  "CoA fail": "bg-rose-100 text-rose-700",
 };
 
 export function Badge({ value }: { value: string }) {

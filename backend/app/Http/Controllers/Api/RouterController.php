@@ -62,6 +62,16 @@ class RouterController extends Controller
         return response()->json(['message' => 'Router deleted.']);
     }
 
+    /** Connectivity check: ICMP ping + RADIUS CoA probe + radacct session count. */
+    public function check(Router $router): JsonResponse
+    {
+        try {
+            return response()->json($this->radius->probeNas($router));
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 502);
+        }
+    }
+
     /** Kick a PPPoE session on this NAS via RADIUS Disconnect-Request. */
     public function disconnectUser(Request $request, Router $router): JsonResponse
     {

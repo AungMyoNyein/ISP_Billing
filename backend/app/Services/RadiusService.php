@@ -24,6 +24,13 @@ class RadiusService
 {
     public const SUSPENDED_GROUP = 'suspended';
 
+    /** Reply attributes owned by provision(); anything else in radreply is left alone. */
+    private const MANAGED_REPLY_ATTRIBUTES = [
+        'Service-Type', 'Framed-Protocol', 'Framed-IP-Address', 'Framed-Pool',
+        'Mikrotik-Rate-Limit', 'Mikrotik-Group',
+        'Session-Timeout', 'Idle-Timeout', 'Acct-Interim-Interval',
+    ];
+
     /** Create or refresh radcheck/radreply rows for a customer. */
     public function provision(Customer $customer): void
     {
@@ -33,45 +40,64 @@ class RadiusService
 
         DB::connection('radius')->transaction(function () use ($customer, $plan, $username) {
             // Authentication
-            RadCheck::where('username', $username)->where('attribute', 'Cleartext-Password')->delete();
+            RadCheck::where('username', $username)
+                ->whereIn('attribute', ['Cleartext-Password', 'Simultaneous-Use'])
+                ->delete();
             RadCheck::create([
                 'username' => $username,
                 'attribute' => 'Cleartext-Password',
                 'op' => ':=',
                 'value' => $customer->radius_password,
             ]);
+            if ($plan?->simultaneous_use) {
+                RadCheck::create([
+                    'username' => $username,
+                    'attribute' => 'Simultaneous-Use',
+                    'op' => ':=',
+                    'value' => (string) $plan->simultaneous_use,
+                ]);
+            }
 
-            // Reply attributes from the service plan
+            // Reply attributes: PPP framing plus the plan/customer profile
             RadReply::where('username', $username)
-                ->whereIn('attribute', ['Mikrotik-Rate-Limit', 'Session-Timeout', 'Idle-Timeout'])
+                ->whereIn('attribute', self::MANAGED_REPLY_ATTRIBUTES)
                 ->delete();
 
+            $replies = [
+                ['Service-Type', '=', 'Framed-User'],
+                ['Framed-Protocol', '=', 'PPP'],
+            ];
+
+            if ($customer->framed_ip_address) {
+                $replies[] = ['Framed-IP-Address', ':=', $customer->framed_ip_address];
+            }
+
             if ($plan) {
+                $replies[] = ['Mikrotik-Rate-Limit', ':=', $plan->rateLimit()];
+
+                foreach ([
+                    'Framed-Pool' => $plan->framed_pool,
+                    'Mikrotik-Group' => $plan->mikrotik_group,
+                    'Session-Timeout' => $plan->session_timeout,
+                    'Idle-Timeout' => $plan->idle_timeout,
+                    'Acct-Interim-Interval' => $plan->acct_interim_interval,
+                ] as $attribute => $value) {
+                    if ($value) {
+                        $replies[] = [$attribute, ':=', (string) $value];
+                    }
+                }
+            }
+
+            foreach ($replies as [$attribute, $op, $value]) {
                 RadReply::create([
                     'username' => $username,
-                    'attribute' => 'Mikrotik-Rate-Limit',
-                    'op' => '=',
-                    'value' => $plan->rateLimit(),
+                    'attribute' => $attribute,
+                    'op' => $op,
+                    'value' => $value,
                 ]);
+            }
 
-                if ($plan->session_timeout) {
-                    RadReply::create([
-                        'username' => $username,
-                        'attribute' => 'Session-Timeout',
-                        'op' => '=',
-                        'value' => (string) $plan->session_timeout,
-                    ]);
-                }
-
-                if ($plan->idle_timeout) {
-                    RadReply::create([
-                        'username' => $username,
-                        'attribute' => 'Idle-Timeout',
-                        'op' => '=',
-                        'value' => (string) $plan->idle_timeout,
-                    ]);
-                }
-
+            if ($plan) {
                 RadUserGroup::where('username', $username)
                     ->where('groupname', '!=', self::SUSPENDED_GROUP)
                     ->delete();
@@ -259,6 +285,32 @@ class RadiusService
         }
 
         return $sent;
+    }
+
+    /**
+     * Connectivity check for a NAS: ICMP ping plus a RADIUS
+     * Disconnect-Request probe with a bogus session. Any reply
+     * (ACK or NAK) proves the CoA port is open and the shared
+     * secret matches — RADIUS silently drops bad-secret packets.
+     *
+     * @return array{ping: bool, coa: bool, online_sessions: int}
+     */
+    public function probeNas(Router $router): array
+    {
+        $ping = Process::run(['ping', '-c', '1', '-W', '2', $router->nas_ip])->successful();
+
+        $probe = Process::input("User-Name = \"billing-probe\"\nAcct-Session-Id = \"00000000\"")
+            ->run([
+                'radclient', '-r', '1', '-t', '3',
+                "{$router->nas_ip}:{$router->coa_port}", 'disconnect', $router->radius_secret ?: 'secret',
+            ]);
+        $coa = str_contains($probe->output().$probe->errorOutput(), 'Received Disconnect');
+
+        return [
+            'ping' => $ping,
+            'coa' => $coa,
+            'online_sessions' => RadAcct::online()->where('nasipaddress', $router->nas_ip)->count(),
+        ];
     }
 
     /**

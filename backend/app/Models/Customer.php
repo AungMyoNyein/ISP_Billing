@@ -15,15 +15,19 @@ class Customer extends Model
     use SoftDeletes;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_SUSPENDED = 'suspended';
+
     public const STATUS_EXPIRED = 'expired';
+
     public const STATUS_DISABLED = 'disabled';
 
     protected $fillable = [
         'customer_code', 'username', 'radius_password', 'name', 'phone',
         'address', 'dn_zone', 'sn_odb', 'gps_location', 'status', 'notes',
-        'service_plan_id', 'router_id', 'smartolt_onu_sn',
+        'service_plan_id', 'router_id', 'smartolt_onu_sn', 'framed_ip_address',
         'activation_date', 'expiry_date', 'last_renewed_at',
     ];
 

@@ -29,6 +29,7 @@ export function CustomerForm({ customer, onSaved }: { customer?: Customer; onSav
     service_plan_id: customer?.service_plan_id ? String(customer.service_plan_id) : "",
     router_id: customer?.router_id ? String(customer.router_id) : "",
     smartolt_onu_sn: customer?.smartolt_onu_sn ?? "",
+    framed_ip_address: customer?.framed_ip_address ?? "",
     expiry_date: customer?.expiry_date?.slice(0, 10) ?? "",
   });
 
@@ -51,6 +52,7 @@ export function CustomerForm({ customer, onSaved }: { customer?: Customer; onSav
         ...form,
         service_plan_id: form.service_plan_id || null,
         router_id: form.router_id || null,
+        framed_ip_address: form.framed_ip_address || null,
         expiry_date: form.expiry_date || null,
       };
       if (customer && !form.radius_password) delete body.radius_password;
@@ -112,6 +114,9 @@ export function CustomerForm({ customer, onSaved }: { customer?: Customer; onSav
         </Field>
         <Field label="SmartOLT ONU Serial" error={err("smartolt_onu_sn")}>
           <input className={inputCls} value={form.smartolt_onu_sn} onChange={(e) => set("smartolt_onu_sn", e.target.value)} />
+        </Field>
+        <Field label="Static IP (Framed-IP-Address, blank = from pool)" error={err("framed_ip_address")}>
+          <input className={inputCls} value={form.framed_ip_address} onChange={(e) => set("framed_ip_address", e.target.value)} placeholder="100.64.10.55" />
         </Field>
         <Field label="Service Plan" error={err("service_plan_id")}>
           <select className={inputCls} value={form.service_plan_id} onChange={(e) => set("service_plan_id", e.target.value)}>

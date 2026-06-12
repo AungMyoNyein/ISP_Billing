@@ -17,8 +17,7 @@ class CustomerController extends Controller
     public function __construct(
         private readonly RadiusService $radius,
         private readonly BillingService $billing,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -164,6 +163,7 @@ class CustomerController extends Controller
             'service_plan_id' => ['nullable', 'exists:service_plans,id'],
             'router_id' => ['nullable', 'exists:routers,id'],
             'smartolt_onu_sn' => ['nullable', 'string', 'max:50'],
+            'framed_ip_address' => ['nullable', 'ip'],
             'activation_date' => ['nullable', 'date'],
             'expiry_date' => ['nullable', 'date'],
         ]);

@@ -3,14 +3,31 @@
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { usePaginated } from "@/hooks/usePaginated";
-import { Button, Card, ErrorNote, Field, Modal, PageHeader, Pagination, Table, inputCls } from "@/components/ui";
+import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Pagination, Table, inputCls } from "@/components/ui";
 import type { Router } from "@/lib/types";
+
+type CheckResult = { ping: boolean; coa: boolean; online_sessions: number };
 
 export default function RoutersPage() {
   const { data, page, lastPage, total, loading, error, setPage, reload } = usePaginated<Router>("/routers");
   const [editing, setEditing] = useState<Router | null>(null);
   const [creating, setCreating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [checkingId, setCheckingId] = useState<number | null>(null);
+  const [checks, setChecks] = useState<Record<number, CheckResult>>({});
+
+  async function check(router: Router) {
+    setCheckingId(router.id);
+    setActionError(null);
+    try {
+      const result = await api<CheckResult>(`/routers/${router.id}/check`);
+      setChecks((c) => ({ ...c, [router.id]: result }));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Check failed");
+    } finally {
+      setCheckingId(null);
+    }
+  }
 
   async function remove(router: Router) {
     if (!confirm(`Delete router "${router.name}"?`)) return;
@@ -33,23 +50,39 @@ export default function RoutersPage() {
 
       <Card>
         <Table
-          headers={["Name", "NAS IP", "CoA Port", "Customers", "Notes", ""]}
+          headers={["Name", "NAS IP", "CoA Port", "Customers", "Check Result", ""]}
           loading={loading}
           empty={data.length === 0}
         >
-          {data.map((r) => (
-            <tr key={r.id} className="hover:bg-slate-50">
-              <td className="px-4 py-3 font-medium">{r.name}</td>
-              <td className="px-4 py-3 font-mono text-xs">{r.nas_ip}</td>
-              <td className="px-4 py-3">{r.coa_port}</td>
-              <td className="px-4 py-3">{r.customers_count ?? 0}</td>
-              <td className="px-4 py-3 text-xs text-slate-500">{r.notes || "—"}</td>
-              <td className="px-4 py-3 text-right whitespace-nowrap">
-                <Button variant="ghost" onClick={() => setEditing(r)}>Edit</Button>
-                <Button variant="ghost" onClick={() => remove(r)}>Delete</Button>
-              </td>
-            </tr>
-          ))}
+          {data.map((r) => {
+            const c = checks[r.id];
+            return (
+              <tr key={r.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 font-medium">{r.name}</td>
+                <td className="px-4 py-3 font-mono text-xs">{r.nas_ip}</td>
+                <td className="px-4 py-3">{r.coa_port}</td>
+                <td className="px-4 py-3">{r.customers_count ?? 0}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {c ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Badge value={c.ping ? "ping ok" : "ping fail"} />
+                      <Badge value={c.coa ? "CoA ok" : "CoA fail"} />
+                      <span className="text-xs text-slate-500">{c.online_sessions} online</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <Button variant="ghost" disabled={checkingId === r.id} onClick={() => check(r)}>
+                    {checkingId === r.id ? "Checking…" : "Check"}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setEditing(r)}>Edit</Button>
+                  <Button variant="ghost" onClick={() => remove(r)}>Delete</Button>
+                </td>
+              </tr>
+            );
+          })}
         </Table>
         <Pagination page={page} lastPage={lastPage} total={total} onPage={setPage} />
       </Card>
