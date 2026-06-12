@@ -27,7 +27,7 @@ class RadiusService
     /** Reply attributes owned by provision(); anything else in radreply is left alone. */
     private const MANAGED_REPLY_ATTRIBUTES = [
         'Service-Type', 'Framed-Protocol', 'Framed-IP-Address', 'Framed-Pool',
-        'Mikrotik-Rate-Limit', 'Mikrotik-Group',
+        'Mikrotik-Rate-Limit',
         'Session-Timeout', 'Idle-Timeout', 'Acct-Interim-Interval',
     ];
 
@@ -77,7 +77,6 @@ class RadiusService
 
                 foreach ([
                     'Framed-Pool' => $plan->framed_pool,
-                    'Mikrotik-Group' => $plan->mikrotik_group,
                     'Session-Timeout' => $plan->session_timeout,
                     'Idle-Timeout' => $plan->idle_timeout,
                     'Acct-Interim-Interval' => $plan->acct_interim_interval,

@@ -87,7 +87,6 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
     idle_timeout: plan?.idle_timeout != null ? String(plan.idle_timeout) : "300",
     mikrotik_rate_limit: plan?.mikrotik_rate_limit ?? "",
     framed_pool: plan?.framed_pool ?? "",
-    mikrotik_group: plan?.mikrotik_group ?? "",
     simultaneous_use: plan?.simultaneous_use != null ? String(plan.simultaneous_use) : "",
     acct_interim_interval: plan?.acct_interim_interval != null ? String(plan.acct_interim_interval) : "300",
     validity_days: plan ? String(plan.validity_days) : "30",
@@ -115,7 +114,6 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
         validity_days: Number(form.validity_days),
         mikrotik_rate_limit: form.mikrotik_rate_limit || null,
         framed_pool: form.framed_pool || null,
-        mikrotik_group: form.mikrotik_group || null,
         simultaneous_use: form.simultaneous_use === "" ? null : Number(form.simultaneous_use),
         acct_interim_interval: form.acct_interim_interval === "" ? null : Number(form.acct_interim_interval),
         radius_group: form.radius_group || null,
@@ -157,9 +155,6 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
         </Field>
         <Field label="Framed-Pool (IP pool name on the NAS)" error={err("framed_pool")}>
           <input className={inputCls} value={form.framed_pool} onChange={(e) => set("framed_pool", e.target.value)} placeholder="pppoe-pool" />
-        </Field>
-        <Field label="Mikrotik-Group" error={err("mikrotik_group")}>
-          <input className={inputCls} value={form.mikrotik_group} onChange={(e) => set("mikrotik_group", e.target.value)} />
         </Field>
         <Field label="Simultaneous-Use (max sessions, blank = no limit)" error={err("simultaneous_use")}>
           <input className={inputCls} type="number" min="1" value={form.simultaneous_use} onChange={(e) => set("simultaneous_use", e.target.value)} />

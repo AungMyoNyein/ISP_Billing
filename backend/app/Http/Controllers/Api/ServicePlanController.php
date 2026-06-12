@@ -63,7 +63,6 @@ class ServicePlanController extends Controller
             'idle_timeout' => ['nullable', 'integer', 'min:0'],
             'mikrotik_rate_limit' => ['nullable', 'string', 'max:100'],
             'framed_pool' => ['nullable', 'string', 'max:64'],
-            'mikrotik_group' => ['nullable', 'string', 'max:64'],
             'simultaneous_use' => ['nullable', 'integer', 'min:1', 'max:100'],
             'acct_interim_interval' => ['nullable', 'integer', 'min:30', 'max:86400'],
             'validity_days' => ['sometimes', 'integer', 'min:1'],

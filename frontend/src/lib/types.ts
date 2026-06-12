@@ -27,7 +27,6 @@ export interface ServicePlan {
   idle_timeout: number | null;
   mikrotik_rate_limit: string | null;
   framed_pool: string | null;
-  mikrotik_group: string | null;
   simultaneous_use: number | null;
   acct_interim_interval: number | null;
   validity_days: number;
