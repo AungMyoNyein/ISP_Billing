@@ -83,6 +83,11 @@ class DatabaseSeeder extends Seeder
             'is_active' => true,
         ]));
 
+        $radius = app(RadiusService::class);
+        foreach ($plans as $plan) {
+            $radius->syncPlanGroup($plan);
+        }
+
         // ---- Routers -------------------------------------------------
         $routers = collect([
             ['name' => 'Core-Yangon', 'nas_ip' => '10.0.0.1'],
