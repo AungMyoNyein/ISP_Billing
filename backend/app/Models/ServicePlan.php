@@ -13,6 +13,7 @@ class ServicePlan extends Model
     protected $fillable = [
         'name', 'price', 'download_speed_kbps', 'upload_speed_kbps',
         'session_timeout', 'idle_timeout', 'mikrotik_rate_limit',
+        'framed_pool', 'mikrotik_group', 'simultaneous_use', 'acct_interim_interval',
         'validity_days', 'radius_group', 'is_active', 'description',
     ];
 

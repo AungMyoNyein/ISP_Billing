@@ -26,6 +26,10 @@ export interface ServicePlan {
   session_timeout: number | null;
   idle_timeout: number | null;
   mikrotik_rate_limit: string | null;
+  framed_pool: string | null;
+  mikrotik_group: string | null;
+  simultaneous_use: number | null;
+  acct_interim_interval: number | null;
   validity_days: number;
   radius_group: string | null;
   is_active: boolean;
@@ -60,6 +64,7 @@ export interface Customer {
   service_plan_id: number | null;
   router_id: number | null;
   smartolt_onu_sn: string | null;
+  framed_ip_address: string | null;
   activation_date: string | null;
   expiry_date: string | null;
   last_renewed_at: string | null;
