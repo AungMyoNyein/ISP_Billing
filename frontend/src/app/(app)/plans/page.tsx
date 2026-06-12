@@ -81,8 +81,8 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
   const [form, setForm] = useState({
     name: plan?.name ?? "",
     price: plan ? String(plan.price) : "",
-    download_speed_kbps: plan ? String(plan.download_speed_kbps) : "",
-    upload_speed_kbps: plan ? String(plan.upload_speed_kbps) : "",
+    download_mbps: plan ? String(plan.download_speed_kbps / 1024) : "",
+    upload_mbps: plan ? String(plan.upload_speed_kbps / 1024) : "",
     session_timeout: plan?.session_timeout != null ? String(plan.session_timeout) : "0",
     idle_timeout: plan?.idle_timeout != null ? String(plan.idle_timeout) : "300",
     mikrotik_rate_limit: plan?.mikrotik_rate_limit ?? "",
@@ -104,11 +104,12 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
     setError(null);
     setFieldErrors({});
     try {
+      const { download_mbps, upload_mbps, ...rest } = form;
       const body = {
-        ...form,
+        ...rest,
         price: Number(form.price),
-        download_speed_kbps: Number(form.download_speed_kbps),
-        upload_speed_kbps: Number(form.upload_speed_kbps),
+        download_speed_kbps: Math.round(Number(download_mbps) * 1024),
+        upload_speed_kbps: Math.round(Number(upload_mbps) * 1024),
         session_timeout: form.session_timeout === "" ? null : Number(form.session_timeout),
         idle_timeout: form.idle_timeout === "" ? null : Number(form.idle_timeout),
         validity_days: Number(form.validity_days),
@@ -139,11 +140,11 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
         <Field label="Price *" error={err("price")}>
           <input className={inputCls} type="number" min="0" step="0.01" value={form.price} onChange={(e) => set("price", e.target.value)} required />
         </Field>
-        <Field label="Download Speed (kbps) *" error={err("download_speed_kbps")}>
-          <input className={inputCls} type="number" min="1" value={form.download_speed_kbps} onChange={(e) => set("download_speed_kbps", e.target.value)} required />
+        <Field label="Download Speed (Mbps) *" error={err("download_speed_kbps")}>
+          <input className={inputCls} type="number" min="0.1" step="0.1" value={form.download_mbps} onChange={(e) => set("download_mbps", e.target.value)} required />
         </Field>
-        <Field label="Upload Speed (kbps) *" error={err("upload_speed_kbps")}>
-          <input className={inputCls} type="number" min="1" value={form.upload_speed_kbps} onChange={(e) => set("upload_speed_kbps", e.target.value)} required />
+        <Field label="Upload Speed (Mbps) *" error={err("upload_speed_kbps")}>
+          <input className={inputCls} type="number" min="0.1" step="0.1" value={form.upload_mbps} onChange={(e) => set("upload_mbps", e.target.value)} required />
         </Field>
         <Field label="Session Timeout (seconds, 0 = unlimited)" error={err("session_timeout")}>
           <input className={inputCls} type="number" min="0" value={form.session_timeout} onChange={(e) => set("session_timeout", e.target.value)} />
