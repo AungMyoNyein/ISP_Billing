@@ -165,7 +165,7 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
         <Field label="Validity (days)" error={err("validity_days")}>
           <input className={inputCls} type="number" min="1" value={form.validity_days} onChange={(e) => set("validity_days", e.target.value)} />
         </Field>
-        <Field label="RADIUS Group" error={err("radius_group")}>
+        <Field label="RADIUS Group (blank = auto from plan name)" error={err("radius_group")}>
           <input className={inputCls} value={form.radius_group} onChange={(e) => set("radius_group", e.target.value)} />
         </Field>
         <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">

@@ -6,9 +6,12 @@ use App\Models\Customer;
 use App\Models\Radius\Nas;
 use App\Models\Radius\RadAcct;
 use App\Models\Radius\RadCheck;
+use App\Models\Radius\RadGroupCheck;
+use App\Models\Radius\RadGroupReply;
 use App\Models\Radius\RadReply;
 use App\Models\Radius\RadUserGroup;
 use App\Models\Router;
+use App\Models\ServicePlan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
@@ -24,14 +27,86 @@ class RadiusService
 {
     public const SUSPENDED_GROUP = 'suspended';
 
-    /** Reply attributes owned by provision(); anything else in radreply is left alone. */
+    /** Reply attributes owned by the plan group / provision(); anything else is left alone. */
     private const MANAGED_REPLY_ATTRIBUTES = [
         'Service-Type', 'Framed-Protocol', 'Framed-IP-Address', 'Framed-Pool',
         'Mikrotik-Rate-Limit',
         'Session-Timeout', 'Idle-Timeout', 'Acct-Interim-Interval',
     ];
 
-    /** Create or refresh radcheck/radreply rows for a customer. */
+    /**
+     * Mirror a service plan into the FreeRADIUS group tables, so every
+     * member of the plan's radius_group gets its attributes and edits
+     * apply to all customers without re-provisioning each one.
+     */
+    public function syncPlanGroup(ServicePlan $plan, ?string $oldGroup = null): void
+    {
+        $group = $plan->radius_group;
+        if (! $group) {
+            return;
+        }
+
+        DB::connection('radius')->transaction(function () use ($plan, $group, $oldGroup) {
+            if ($oldGroup && $oldGroup !== $group) {
+                $this->deletePlanGroup($oldGroup);
+                RadUserGroup::where('groupname', $oldGroup)->update(['groupname' => $group]);
+            }
+
+            RadGroupCheck::where('groupname', $group)->where('attribute', 'Simultaneous-Use')->delete();
+            if ($plan->simultaneous_use) {
+                RadGroupCheck::create([
+                    'groupname' => $group,
+                    'attribute' => 'Simultaneous-Use',
+                    'op' => ':=',
+                    'value' => (string) $plan->simultaneous_use,
+                ]);
+            }
+
+            RadGroupReply::where('groupname', $group)
+                ->whereIn('attribute', self::MANAGED_REPLY_ATTRIBUTES)
+                ->delete();
+
+            $replies = [
+                ['Service-Type', '=', 'Framed-User'],
+                ['Framed-Protocol', '=', 'PPP'],
+                ['Mikrotik-Rate-Limit', ':=', $plan->rateLimit()],
+            ];
+            foreach ([
+                'Framed-Pool' => $plan->framed_pool,
+                'Session-Timeout' => $plan->session_timeout,
+                'Idle-Timeout' => $plan->idle_timeout,
+                'Acct-Interim-Interval' => $plan->acct_interim_interval,
+            ] as $attribute => $value) {
+                if ($value) {
+                    $replies[] = [$attribute, ':=', (string) $value];
+                }
+            }
+
+            foreach ($replies as [$attribute, $op, $value]) {
+                RadGroupReply::create([
+                    'groupname' => $group,
+                    'attribute' => $attribute,
+                    'op' => $op,
+                    'value' => $value,
+                ]);
+            }
+        });
+    }
+
+    /** Remove a plan's group attribute rows (e.g. on plan delete). */
+    public function deletePlanGroup(string $group): void
+    {
+        RadGroupReply::where('groupname', $group)->whereIn('attribute', self::MANAGED_REPLY_ATTRIBUTES)->delete();
+        RadGroupCheck::where('groupname', $group)->where('attribute', 'Simultaneous-Use')->delete();
+    }
+
+    /**
+     * Create or refresh radcheck/radreply rows for a customer.
+     *
+     * Plan attributes live on the plan's RADIUS group (syncPlanGroup);
+     * the user rows carry only the password, group membership, and the
+     * optional static Framed-IP-Address override.
+     */
     public function provision(Customer $customer): void
     {
         $customer->loadMissing('servicePlan');
@@ -49,50 +124,17 @@ class RadiusService
                 'op' => ':=',
                 'value' => $customer->radius_password,
             ]);
-            if ($plan?->simultaneous_use) {
-                RadCheck::create([
-                    'username' => $username,
-                    'attribute' => 'Simultaneous-Use',
-                    'op' => ':=',
-                    'value' => (string) $plan->simultaneous_use,
-                ]);
-            }
 
-            // Reply attributes: PPP framing plus the plan/customer profile
+            // Per-user replies: only the static IP; the rest comes from the group
             RadReply::where('username', $username)
                 ->whereIn('attribute', self::MANAGED_REPLY_ATTRIBUTES)
                 ->delete();
-
-            $replies = [
-                ['Service-Type', '=', 'Framed-User'],
-                ['Framed-Protocol', '=', 'PPP'],
-            ];
-
             if ($customer->framed_ip_address) {
-                $replies[] = ['Framed-IP-Address', ':=', $customer->framed_ip_address];
-            }
-
-            if ($plan) {
-                $replies[] = ['Mikrotik-Rate-Limit', ':=', $plan->rateLimit()];
-
-                foreach ([
-                    'Framed-Pool' => $plan->framed_pool,
-                    'Session-Timeout' => $plan->session_timeout,
-                    'Idle-Timeout' => $plan->idle_timeout,
-                    'Acct-Interim-Interval' => $plan->acct_interim_interval,
-                ] as $attribute => $value) {
-                    if ($value) {
-                        $replies[] = [$attribute, ':=', (string) $value];
-                    }
-                }
-            }
-
-            foreach ($replies as [$attribute, $op, $value]) {
                 RadReply::create([
                     'username' => $username,
-                    'attribute' => $attribute,
-                    'op' => $op,
-                    'value' => $value,
+                    'attribute' => 'Framed-IP-Address',
+                    'op' => ':=',
+                    'value' => $customer->framed_ip_address,
                 ]);
             }
 

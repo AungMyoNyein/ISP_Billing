@@ -5,12 +5,18 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\ServicePlan;
+use App\Services\RadiusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class ServicePlanController extends Controller
 {
+    public function __construct(
+        private readonly RadiusService $radius,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $plans = ServicePlan::withCount('customers')
@@ -24,7 +30,11 @@ class ServicePlanController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $plan = ServicePlan::create($this->validateData($request));
+        $data = $this->validateData($request);
+        $data['radius_group'] = $data['radius_group'] ?? Str::slug($data['name']);
+
+        $plan = ServicePlan::create($data);
+        $this->radius->syncPlanGroup($plan);
         AuditLog::record('created', $plan, ['name' => $plan->name]);
 
         return response()->json($plan, 201);
@@ -37,7 +47,12 @@ class ServicePlanController extends Controller
 
     public function update(Request $request, ServicePlan $servicePlan): JsonResponse
     {
-        $servicePlan->update($this->validateData($request, $servicePlan));
+        $data = $this->validateData($request, $servicePlan);
+        $data['radius_group'] = $data['radius_group'] ?? Str::slug($data['name']);
+
+        $oldGroup = $servicePlan->radius_group;
+        $servicePlan->update($data);
+        $this->radius->syncPlanGroup($servicePlan, $oldGroup);
         AuditLog::record('updated', $servicePlan, $servicePlan->getChanges());
 
         return response()->json($servicePlan);
@@ -47,6 +62,10 @@ class ServicePlanController extends Controller
     {
         abort_if($servicePlan->customers()->exists(), 422, 'Plan has customers assigned; reassign them first.');
         $servicePlan->delete();
+        if ($servicePlan->radius_group
+            && ! ServicePlan::where('radius_group', $servicePlan->radius_group)->exists()) {
+            $this->radius->deletePlanGroup($servicePlan->radius_group);
+        }
         AuditLog::record('deleted', $servicePlan, ['name' => $servicePlan->name]);
 
         return response()->json(['message' => 'Plan deleted.']);
