@@ -57,7 +57,7 @@ class CustomerController extends Controller
 
     public function show(Customer $customer): JsonResponse
     {
-        $customer->load(['servicePlan', 'router:id,name,host']);
+        $customer->load(['servicePlan', 'router:id,name,nas_ip']);
 
         return response()->json([
             ...$customer->toArray(),
