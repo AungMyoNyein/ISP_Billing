@@ -4,38 +4,36 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Router;
-use App\Services\MikroTikService;
 use App\Services\RadiusService;
 use App\Services\SmartOltService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/** System status page: routers, FreeRADIUS, databases, SmartOLT. */
+/** System status page: NAS routers (via radacct), FreeRADIUS, databases, SmartOLT. */
 class StatusController extends Controller
 {
     public function index(
-        Request $request,
-        MikroTikService $mikrotik,
         RadiusService $radius,
         SmartOltService $smartOlt,
     ): JsonResponse {
-        $live = $request->boolean('live'); // probe routers now instead of cached status
+        $radiusDb = $radius->healthy();
 
-        $routers = Router::withCount('customers')->orderBy('name')->get()->map(function (Router $router) use ($live, $mikrotik) {
-            if ($live) {
-                $mikrotik->checkStatus($router);
-                $router->refresh();
-            }
+        $activity = $radiusDb
+            ? $radius->nasActivity()
+            : ['online' => collect(), 'last_seen' => collect()];
+
+        $routers = Router::withCount('customers')->orderBy('name')->get()->map(function (Router $router) use ($activity) {
+            $sessions = (int) ($activity['online'][$router->nas_ip] ?? 0);
+            $lastSeen = $activity['last_seen'][$router->nas_ip] ?? null;
 
             return [
                 'id' => $router->id,
                 'name' => $router->name,
-                'host' => $router->host,
-                'status' => $router->status,
-                'last_seen_at' => $router->last_seen_at?->toIso8601String(),
+                'nas_ip' => $router->nas_ip,
+                'status' => $sessions > 0 ? 'active' : 'idle',
+                'online_sessions' => $sessions,
+                'last_seen_at' => $lastSeen ? now()->parse($lastSeen)->toIso8601String() : null,
                 'customers_count' => $router->customers_count,
-                'resource' => $router->last_resource,
             ];
         });
 
@@ -46,11 +44,9 @@ class StatusController extends Controller
             $mainDb = false;
         }
 
-        $radiusDb = $radius->healthy();
-
         return response()->json([
             'routers' => $routers,
-            'routers_online' => $routers->where('status', 'online')->count(),
+            'routers_active' => $routers->where('status', 'active')->count(),
             'routers_total' => $routers->count(),
             'freeradius' => [
                 'database_reachable' => $radiusDb,

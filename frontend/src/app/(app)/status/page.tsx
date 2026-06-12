@@ -3,20 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { Badge, Button, Card, ErrorNote, PageHeader, Table } from "@/components/ui";
+import { Badge, Card, ErrorNote, PageHeader, Table } from "@/components/ui";
 import type { SystemStatus } from "@/lib/types";
 
 export default function StatusPage() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [probing, setProbing] = useState(false);
 
-  const load = useCallback((live = false) => {
-    if (live) setProbing(true);
-    api<SystemStatus>("/status", { params: live ? { live: 1 } : {} })
+  const load = useCallback(() => {
+    api<SystemStatus>("/status")
       .then(setStatus)
-      .catch((e) => setError(e.message))
-      .finally(() => setProbing(false));
+      .catch((e) => setError(e.message));
   }, []);
 
   useEffect(() => {
@@ -30,15 +27,14 @@ export default function StatusPage() {
       <PageHeader
         title="System Status"
         subtitle={status ? `Checked ${formatDateTime(status.checked_at)}` : "Loading…"}
-        actions={<Button variant="secondary" disabled={probing} onClick={() => load(true)}>{probing ? "Probing routers…" : "Probe routers now"}</Button>}
       />
       <ErrorNote message={error} />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <HealthCard
-          label="Connected MikroTik Routers"
-          ok={!!status && status.routers_online === status.routers_total && status.routers_total > 0}
-          detail={status ? `${status.routers_online} / ${status.routers_total} online` : "…"}
+          label="NAS Routers"
+          ok={!!status && status.routers_total > 0}
+          detail={status ? `${status.routers_active} / ${status.routers_total} with active sessions` : "…"}
         />
         <HealthCard
           label="FreeRADIUS"
@@ -61,18 +57,16 @@ export default function StatusPage() {
       </div>
 
       <Card>
-        <h2 className="px-5 pt-4 text-sm font-semibold text-slate-700">Router Status</h2>
-        <Table headers={["Router", "Host", "Status", "Customers", "Last Seen", "Board", "Uptime", "CPU"]} empty={!status || status.routers.length === 0}>
+        <h2 className="px-5 pt-4 text-sm font-semibold text-slate-700">NAS Activity (from RADIUS accounting)</h2>
+        <Table headers={["Router", "NAS IP", "Status", "Online Sessions", "Customers", "Last Accounting Activity"]} empty={!status || status.routers.length === 0}>
           {status?.routers.map((r) => (
             <tr key={r.id} className="hover:bg-slate-50">
               <td className="px-4 py-3 font-medium">{r.name}</td>
-              <td className="px-4 py-3 font-mono text-xs">{r.host}</td>
+              <td className="px-4 py-3 font-mono text-xs">{r.nas_ip}</td>
               <td className="px-4 py-3"><Badge value={r.status} /></td>
+              <td className="px-4 py-3">{r.online_sessions}</td>
               <td className="px-4 py-3">{r.customers_count}</td>
               <td className="px-4 py-3">{formatDateTime(r.last_seen_at)}</td>
-              <td className="px-4 py-3">{r.resource?.["board-name"] ?? "—"}</td>
-              <td className="px-4 py-3">{r.resource?.uptime ?? "—"}</td>
-              <td className="px-4 py-3">{r.resource?.["cpu-load"] ? `${r.resource["cpu-load"]}%` : "—"}</td>
             </tr>
           ))}
         </Table>

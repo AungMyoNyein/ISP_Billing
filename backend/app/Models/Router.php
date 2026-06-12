@@ -2,39 +2,24 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Crypt;
 
+/**
+ * A NAS (PPPoE concentrator) known to FreeRADIUS. The billing app
+ * only talks RADIUS to it: nas table sync for auth/acct, and
+ * Disconnect-Requests to coa_port for live session kicks.
+ */
 class Router extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
-        'name', 'host', 'api_port', 'username', 'password', 'use_ssl',
-        'nas_ip', 'radius_secret', 'status', 'last_seen_at', 'last_resource', 'notes',
+        'name', 'nas_ip', 'coa_port', 'radius_secret', 'notes',
     ];
 
-    protected $hidden = ['password', 'radius_secret'];
-
-    protected function casts(): array
-    {
-        return [
-            'use_ssl' => 'boolean',
-            'last_seen_at' => 'datetime',
-            'last_resource' => 'array',
-        ];
-    }
-
-    protected function password(): Attribute
-    {
-        return Attribute::make(
-            get: fn (?string $value) => $value === null ? null : Crypt::decryptString($value),
-            set: fn (?string $value) => $value === null ? null : Crypt::encryptString($value),
-        );
-    }
+    protected $hidden = ['radius_secret'];
 
     public function customers(): HasMany
     {

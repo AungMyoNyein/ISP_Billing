@@ -17,8 +17,8 @@ Production-ready ISP billing & RADIUS management system.
         ┌────────────────┼─────────────────┐
         ▼                ▼                 ▼
  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
- │ PostgreSQL  │  │ FreeRADIUS  │  │ MikroTik    │
- │ Main DB     │  │ SQL schema  │  │ RouterOS API│
+ │ PostgreSQL  │  │ FreeRADIUS  │  │ NAS routers │
+ │ Main DB     │  │ SQL schema  │  │ RADIUS only │
  └─────────────┘  └─────────────┘  └─────────────┘
         │
         ▼
@@ -36,20 +36,20 @@ Production-ready ISP billing & RADIUS management system.
 | Database   | PostgreSQL (`isp_billing` main + `radius` schema) |
 | Frontend   | Next.js 15 (App Router), TailwindCSS 4            |
 | AAA        | FreeRADIUS SQL tables (radcheck/radreply/radusergroup/radacct/nas) |
-| Network    | MikroTik RouterOS API (built-in binary client, no deps) |
+| Network    | RADIUS only — NAS table sync + RFC 5176 disconnects via `radclient` |
 | OLT        | SmartOLT REST API (optional)                      |
 
 ## Modules
 
 - **Dashboard** — total/active/online/suspended/expired customers, expiring in 7 days, new this month, monthly revenue; auto-refreshes.
 - **CRM / Customers** — Customer ID (manual), username/password, name, phone, address, DN Zone, SN ODB, GPS location, status, notes; full filters; detail page with **Bandwidth Usage tab** (daily download/upload chart + session history from `radacct`).
-- **Service Plans** — name, price, download/upload speed, session timeout, idle timeout, MikroTik rate limit (auto-derived from speeds if blank), validity days, RADIUS group.
+- **Service Plans** — name, price, download/upload speed, session timeout, idle timeout, `Mikrotik-Rate-Limit` RADIUS attribute (auto-derived from speeds if blank), validity days, RADIUS group.
 - **Billing Menu** — Invoices, Payments, Renewals, Expiring Customers, Suspended Customers — all with filters.
 - **Invoices** — invoice number, customer, plan, amount, billing date, due date, status (paid/unpaid/suspended/cancelled), Mark Paid flow.
-- **Network** — MikroTik routers (CRUD, live probe, PPPoE session kick) and Online Sessions (live radacct view, 15s refresh).
+- **Network** — NAS routers (CRUD, synced to the FreeRADIUS `nas` table, RADIUS session kick) and Online Sessions (live radacct view, 15s refresh).
 - **Reports** — monthly revenue, customer growth, plan distribution, receivables.
 - **Administration** — Users, Roles & Permissions (granular RBAC), System Settings, Audit Logs, Backup & Restore (pg_dump/pg_restore).
-- **Status Page** — connected MikroTik routers, router status/resources, FreeRADIUS status, database status, SmartOLT status.
+- **Status Page** — NAS routers with online sessions and last accounting activity, FreeRADIUS status, database status, SmartOLT status.
 
 ## Billing rules (enforced automatically)
 
@@ -59,7 +59,7 @@ Unpaid invoice > Due Date
 Invoice status = suspended, Customer status = suspended
     ↓
 RADIUS access disabled (Auth-Type := Reject + "suspended" group)
-    ↓  live PPPoE session kicked via MikroTik API
+    ↓  live PPPoE session kicked via RADIUS Disconnect-Request (RFC 5176)
 
 Invoice marked Paid
     ↓
@@ -80,7 +80,7 @@ Full documentation in [`docs/`](docs/):
 - [Installation & production deployment](docs/INSTALL.md)
 - [Configuration reference (env vars, settings, permissions)](docs/CONFIGURATION.md)
 - [API reference](docs/API.md)
-- [FreeRADIUS / MikroTik / SmartOLT integration guide](docs/INTEGRATIONS.md)
+- [FreeRADIUS / NAS router / SmartOLT integration guide](docs/INTEGRATIONS.md)
 
 ## Manual setup
 
@@ -145,12 +145,14 @@ opt out, e.g. for a remote RADIUS host. The billing system maintains:
 - `nas` — synced from the Routers module (`nas_ip` + `radius_secret`)
 - `radacct` — read for online sessions, bandwidth usage and dashboard counts
 
-## MikroTik integration
+## NAS router integration
 
-Add routers under **Network → Routers** (API user with `api` policy,
-port 8728 or 8729+SSL). Used for: connectivity probe + system resources
-(status page), active PPPoE sessions, and kicking sessions on
-suspension so RADIUS rules apply immediately.
+Add routers under **Network → Routers** with the NAS IP, the shared
+RADIUS secret, and the CoA/Disconnect port (default 3799). All router
+communication is plain RADIUS: the entry is synced to the FreeRADIUS
+`nas` table, and live sessions are kicked on suspension with RADIUS
+Disconnect-Requests (RFC 5176) via `radclient` so the rules apply
+immediately. On MikroTik, enable `/radius incoming set accept=yes`.
 
 ## SmartOLT integration (optional)
 

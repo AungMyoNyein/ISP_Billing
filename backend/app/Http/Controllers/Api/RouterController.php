@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Router;
-use App\Services\MikroTikService;
 use App\Services\RadiusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,10 +13,8 @@ use Illuminate\Validation\Rule;
 class RouterController extends Controller
 {
     public function __construct(
-        private readonly MikroTikService $mikrotik,
         private readonly RadiusService $radius,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -46,12 +43,12 @@ class RouterController extends Controller
     public function update(Request $request, Router $router): JsonResponse
     {
         $data = $this->validateData($request, $router);
-        if (($data['password'] ?? null) === '') {
-            unset($data['password']); // blank means keep the stored secret
+        if (($data['radius_secret'] ?? null) === '') {
+            unset($data['radius_secret']); // blank means keep the stored secret
         }
         $router->update($data);
         $this->radius->syncNas($router);
-        AuditLog::record('updated', $router, array_diff_key($router->getChanges(), array_flip(['password', 'radius_secret'])));
+        AuditLog::record('updated', $router, array_diff_key($router->getChanges(), array_flip(['radius_secret'])));
 
         return response()->json($router);
     }
@@ -65,34 +62,13 @@ class RouterController extends Controller
         return response()->json(['message' => 'Router deleted.']);
     }
 
-    /** Live connectivity probe + cached system resources. */
-    public function check(Router $router): JsonResponse
-    {
-        $result = $this->mikrotik->checkStatus($router);
-
-        return response()->json([
-            'router' => $router->fresh(),
-            ...$result,
-        ]);
-    }
-
-    /** Active PPPoE sessions straight from the router. */
-    public function sessions(Router $router): JsonResponse
-    {
-        try {
-            return response()->json(['sessions' => $this->mikrotik->activePppSessions($router)]);
-        } catch (\Throwable $e) {
-            return response()->json(['sessions' => [], 'error' => $e->getMessage()], 502);
-        }
-    }
-
-    /** Kick a PPPoE session on this router. */
+    /** Kick a PPPoE session on this NAS via RADIUS Disconnect-Request. */
     public function disconnectUser(Request $request, Router $router): JsonResponse
     {
         $data = $request->validate(['username' => ['required', 'string', 'max:64']]);
 
         try {
-            $kicked = $this->mikrotik->disconnectPppUser($router, $data['username']);
+            $kicked = $this->radius->disconnectUser($data['username'], $router);
             AuditLog::record('session_disconnected', $router, ['username' => $data['username']]);
 
             return response()->json(['disconnected' => $kicked]);
@@ -105,13 +81,9 @@ class RouterController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique('routers')->ignore($router)->withoutTrashed()],
-            'host' => ['required', 'string', 'max:255'],
-            'api_port' => ['sometimes', 'integer', 'min:1', 'max:65535'],
-            'username' => ['required', 'string', 'max:64'],
-            'password' => [$router ? 'sometimes' : 'required', 'nullable', 'string', 'max:128'],
-            'use_ssl' => ['sometimes', 'boolean'],
-            'nas_ip' => ['nullable', 'string', 'max:45'],
-            'radius_secret' => ['nullable', 'string', 'max:64'],
+            'nas_ip' => ['required', 'string', 'max:45'],
+            'coa_port' => ['sometimes', 'integer', 'min:1', 'max:65535'],
+            'radius_secret' => [$router ? 'sometimes' : 'required', 'nullable', 'string', 'max:64'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
     }

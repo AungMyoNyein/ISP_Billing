@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,9 +20,7 @@ class BillingService
 {
     public function __construct(
         private readonly RadiusService $radius,
-        private readonly MikroTikService $mikrotik,
-    ) {
-    }
+    ) {}
 
     /** Generate the next invoice for a customer based on its plan. */
     public function generateInvoice(Customer $customer, ?string $billingDate = null, ?int $dueDays = null): Invoice
@@ -31,7 +30,7 @@ class BillingService
         abort_if($plan === null, 422, 'Customer has no service plan assigned.');
 
         $billing = $billingDate ? now()->parse($billingDate) : now();
-        $dueDays ??= (int) \App\Models\Setting::getValue('billing.due_days', 5);
+        $dueDays ??= (int) Setting::getValue('billing.due_days', 5);
         $periodStart = $customer->expiry_date?->isFuture()
             ? $customer->expiry_date->copy()->addDay()
             : $billing->copy();
@@ -127,14 +126,10 @@ class BillingService
     /** Disconnect the customer's live PPPoE session so RADIUS rules apply now. */
     public function kickSession(Customer $customer): void
     {
-        if (! $customer->router) {
-            return;
-        }
-
         try {
-            $this->mikrotik->disconnectPppUser($customer->router, $customer->username);
+            $this->radius->disconnectUser($customer->username);
         } catch (\Throwable $e) {
-            Log::warning("Could not kick PPPoE session for {$customer->username}: {$e->getMessage()}");
+            Log::warning("Could not send RADIUS disconnect for {$customer->username}: {$e->getMessage()}");
         }
     }
 

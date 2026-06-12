@@ -85,16 +85,12 @@ class DatabaseSeeder extends Seeder
 
         // ---- Routers -------------------------------------------------
         $routers = collect([
-            ['name' => 'Core-Yangon', 'host' => '10.0.0.1', 'nas_ip' => '10.0.0.1'],
-            ['name' => 'Edge-Mandalay', 'host' => '10.0.1.1', 'nas_ip' => '10.0.1.1'],
+            ['name' => 'Core-Yangon', 'nas_ip' => '10.0.0.1'],
+            ['name' => 'Edge-Mandalay', 'nas_ip' => '10.0.1.1'],
         ])->map(fn (array $r) => Router::updateOrCreate(['name' => $r['name']], [
-            'host' => $r['host'],
-            'api_port' => 8728,
-            'username' => 'api-billing',
-            'password' => 'change-me',
             'nas_ip' => $r['nas_ip'],
+            'coa_port' => 3799,
             'radius_secret' => 'radius-secret',
-            'status' => 'unknown',
         ]));
 
         $radius = app(RadiusService::class);

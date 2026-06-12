@@ -76,12 +76,10 @@ Delete fails with 422 while customers are assigned.
 
 | Method/Path | Notes |
 |---|---|
-| `GET|POST /routers`, `GET|PUT|DELETE /routers/{id}` | API credentials stored encrypted; `nas_ip`+`radius_secret` sync to the FreeRADIUS `nas` table |
-| `GET /routers/{id}/check` | live RouterOS probe; updates cached status + system resources |
-| `GET /routers/{id}/sessions` | active PPP sessions straight from the router |
-| `POST /routers/{id}/disconnect-user` | `{ username }` — kick a PPPoE session |
+| `GET|POST /routers`, `GET|PUT|DELETE /routers/{id}` | `nas_ip`+`radius_secret` sync to the FreeRADIUS `nas` table; `coa_port` for disconnects |
+| `POST /routers/{id}/disconnect-user` | `{ username }` — kick a PPPoE session via RADIUS Disconnect-Request |
 | `GET /sessions/online?search=` | live sessions from radacct, decorated with billing customer info |
-| `GET /status?live=1` | status page payload (routers, FreeRADIUS, databases, SmartOLT); `live=1` probes routers now |
+| `GET /status` | status page payload (NAS routers from radacct, FreeRADIUS, databases, SmartOLT) |
 
 ## Reports — `reports.view`
 

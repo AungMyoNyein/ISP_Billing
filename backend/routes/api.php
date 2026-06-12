@@ -77,8 +77,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:network.view')->group(function () {
         Route::get('/routers', [RouterController::class, 'index']);
         Route::get('/routers/{router}', [RouterController::class, 'show']);
-        Route::get('/routers/{router}/check', [RouterController::class, 'check']);
-        Route::get('/routers/{router}/sessions', [RouterController::class, 'sessions']);
         Route::get('/sessions/online', [SessionController::class, 'index']);
     });
     Route::middleware('permission:network.manage')->group(function () {

@@ -1,4 +1,4 @@
-# Integrations: FreeRADIUS, MikroTik, SmartOLT
+# Integrations: FreeRADIUS, NAS routers, SmartOLT
 
 ## FreeRADIUS
 
@@ -65,41 +65,45 @@ visualises.
 ### Suspension model
 
 Suspension adds `Auth-Type := Reject` (denies the next authentication)
-and the `suspended` group, then kicks the live PPPoE session via the
-MikroTik API so the customer is offline immediately — accounting
-history is preserved. Reconnection removes both rows and re-provisions
-plan attributes.
+and the `suspended` group, then kicks the live PPPoE session with a
+RADIUS Disconnect-Request (RFC 5176, sent with `radclient` to the NAS
+CoA port) so the customer is offline immediately — accounting history
+is preserved. Reconnection removes both rows and re-provisions plan
+attributes.
 
-## MikroTik
+## NAS routers (MikroTik or any RADIUS-capable BRAS)
 
-### Router requirements
+All communication with the router goes through RADIUS — there is no
+RouterOS API access. Add routers under **Network → Routers** with the
+NAS IP (as FreeRADIUS sees it), the shared RADIUS secret, and the CoA
+port; the entry is synced to the FreeRADIUS `nas` table.
 
-- RouterOS 6.43+ (the client uses the modern plain login).
-- API service enabled: `/ip service set api disabled=no` (port 8728) or
-  `api-ssl` (8729 — tick "SSL" on the router form).
-- Dedicated user, least privilege:
-
-  ```
-  /user group add name=billing policy=api,read,write
-  /user add name=api-billing group=billing password=... address=<billing-host-IP>
-  ```
+### Router requirements (MikroTik example)
 
 - PPPoE server with `use-radius=yes` in the PPP AAA settings; the rate
   limit then comes from the RADIUS `Mikrotik-Rate-Limit` reply
   attribute, so no per-user queues are needed.
+- Accept incoming RADIUS disconnects (RFC 5176) so live sessions can
+  be kicked on suspension:
+
+  ```
+  /radius incoming set accept=yes port=3799
+  ```
+
+  The shared secret of the `/radius` entry must match the router's
+  `radius_secret` in the billing system.
+- Enable interim accounting updates (`interim-update`) so bandwidth
+  graphs and the status page stay current.
 
 ### What the system does
 
-| Action               | RouterOS command                  | When                         |
-|----------------------|-----------------------------------|------------------------------|
-| Connectivity probe   | `/system/resource/print`          | Status page, "Check" button (caches board, uptime, CPU) |
-| List live sessions   | `/ppp/active/print`               | Router detail                |
-| Kick a PPPoE session | `/ppp/active/remove`              | On suspension/expiry and via "disconnect user" |
-| Adjust live speed    | `/queue/simple/add\|set`          | Optional plan-change helper  |
+| Action               | Mechanism                                    | When                         |
+|----------------------|----------------------------------------------|------------------------------|
+| Kick a PPPoE session | `radclient ... disconnect` to `nas_ip:coa_port` | On suspension/expiry and via "disconnect user" |
+| NAS activity         | `radacct` aggregation (online sessions, last accounting packet) | Status page |
 
-The RouterOS API client is implemented in
-`backend/app/Services/RouterOs/RouterOsClient.php` (binary protocol over
-a TCP socket, no external dependencies).
+`radclient` ships with `freeradius-utils`, installed by
+`install-deps.sh --with-freeradius`.
 
 ## SmartOLT
 
