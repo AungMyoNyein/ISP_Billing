@@ -13,7 +13,7 @@ follows at the end.
 | PostgreSQL | 14+      | server + `pg_dump`/`pg_restore` for backups      |
 | Node.js    | 18.18+   | 20 LTS recommended                               |
 | FreeRADIUS | 3.x      | optional but required for real AAA               |
-| MikroTik   | RouterOS 6.43+ | API service enabled (port 8728/8729)       |
+| NAS router | any RADIUS-capable BRAS | RADIUS auth/acct + incoming Disconnect (RFC 5176, port 3799) |
 
 On Debian/Ubuntu:
 
@@ -181,7 +181,7 @@ which also removes the need for CORS).
 - [ ] `APP_DEBUG=false`, unique `APP_KEY`
 - [ ] TLS on both API and UI
 - [ ] PostgreSQL only reachable from the app host
-- [ ] MikroTik API user limited to `api` policy + the billing host's IP
+- [ ] NAS routers accept RADIUS CoA/Disconnect only from the RADIUS host, with strong shared secrets
 - [ ] Cron entry installed; verify with `php artisan schedule:list`
 - [ ] Regular backups: **Administration → Backup & Restore** or
       `pg_dump` from cron; test a restore once

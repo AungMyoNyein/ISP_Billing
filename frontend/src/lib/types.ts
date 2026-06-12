@@ -36,14 +36,8 @@ export interface ServicePlan {
 export interface Router {
   id: number;
   name: string;
-  host: string;
-  api_port: number;
-  username: string;
-  use_ssl: boolean;
-  nas_ip: string | null;
-  status: "online" | "offline" | "unknown";
-  last_seen_at: string | null;
-  last_resource?: Record<string, string> | null;
+  nas_ip: string;
+  coa_port: number;
   customers_count?: number;
   notes?: string | null;
 }
@@ -158,13 +152,13 @@ export interface SystemStatus {
   routers: Array<{
     id: number;
     name: string;
-    host: string;
+    nas_ip: string;
     status: string;
+    online_sessions: number;
     last_seen_at: string | null;
     customers_count: number;
-    resource: Record<string, string> | null;
   }>;
-  routers_online: number;
+  routers_active: number;
   routers_total: number;
   freeradius: { database_reachable: boolean; online_sessions: number | null };
   database: { main: boolean; radius: boolean };

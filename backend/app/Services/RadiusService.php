@@ -11,6 +11,7 @@ use App\Models\Radius\RadUserGroup;
 use App\Models\Router;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Process;
 
 /**
  * Provisions billing customers into the FreeRADIUS SQL schema.
@@ -214,11 +215,71 @@ class RadiusService
             ['nasname' => $router->nas_ip],
             [
                 'shortname' => $router->name,
-                'type' => 'mikrotik',
+                'type' => 'other',
                 'secret' => $router->radius_secret ?: 'secret',
                 'description' => 'Managed by ISP Billing',
             ],
         );
+    }
+
+    /**
+     * Kick the user's live sessions with RADIUS Disconnect-Requests
+     * (RFC 5176) so suspension/plan changes apply immediately.
+     *
+     * When $router is given only sessions on that NAS are targeted;
+     * otherwise the NAS is resolved per session from radacct.
+     */
+    public function disconnectUser(string $username, ?Router $router = null): bool
+    {
+        $sessions = RadAcct::online()
+            ->where('username', $username)
+            ->when($router?->nas_ip, fn ($q, $nasIp) => $q->where('nasipaddress', $nasIp))
+            ->get();
+
+        $sent = false;
+        foreach ($sessions as $session) {
+            $nas = $router ?? Router::where('nas_ip', $session->nasipaddress)->first();
+            if (! $nas?->nas_ip || ! $nas->radius_secret) {
+                continue;
+            }
+
+            $clean = fn (?string $v) => str_replace(['"', "\n", "\r"], '', (string) $v);
+            $attrs = "User-Name = \"{$clean($username)}\"\n"
+                ."Acct-Session-Id = \"{$clean($session->acctsessionid)}\"";
+            if ($session->framedipaddress) {
+                $attrs .= "\nFramed-IP-Address = {$clean($session->framedipaddress)}";
+            }
+
+            $result = Process::input($attrs)->run([
+                'radclient', '-r', '2', '-t', '3',
+                "{$nas->nas_ip}:{$nas->coa_port}", 'disconnect', $nas->radius_secret,
+            ]);
+
+            $sent = $sent || $result->successful();
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Per-NAS view from radacct: online session count and last
+     * accounting activity, keyed by NAS IP.
+     *
+     * @return array{online: Collection<string, int>, last_seen: Collection<string, string>}
+     */
+    public function nasActivity(): array
+    {
+        $online = RadAcct::online()
+            ->selectRaw('nasipaddress, COUNT(*) AS sessions')
+            ->groupBy('nasipaddress')
+            ->pluck('sessions', 'nasipaddress');
+
+        $lastSeen = RadAcct::query()
+            ->selectRaw('nasipaddress, MAX(COALESCE(acctupdatetime, acctstarttime)) AS seen')
+            ->groupBy('nasipaddress')
+            ->pluck('seen', 'nasipaddress');
+
+        return ['online' => $online, 'last_seen' => $lastSeen];
     }
 
     public function healthy(): bool
