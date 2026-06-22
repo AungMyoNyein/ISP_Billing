@@ -112,6 +112,10 @@ Packet shows up → the port path is open (any failure is then a client/secret
 issue — debug with `freeradius -X`). Nothing shows up → it's blocked
 upstream (security group / firewall / wrong target IP).
 
+`scripts/radius-check.sh` runs all of the above in one shot — service state,
+bind address, host firewall, loaded `nas` clients, and an optional
+`--user <name> --secret <s>` radtest; `--listen` starts the capture above.
+
 ### Suspension model
 
 Suspension adds `Auth-Type := Reject` (denies the next authentication)
