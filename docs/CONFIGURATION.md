@@ -32,6 +32,12 @@ separate connection. It can share the database FreeRADIUS already uses.
 | `RADIUS_DB_HOST` / `RADIUS_DB_PORT` | `127.0.0.1` / `5432` |      |
 | `RADIUS_DB_DATABASE`   | `radius`      |                                   |
 | `RADIUS_DB_USERNAME` / `RADIUS_DB_PASSWORD` | `radius` / — |        |
+| `RADIUS_RELOAD_COMMAND` | `sudo -n systemctl restart freeradius` | Run after a NAS/router change so FreeRADIUS re-reads its SQL clients (it only loads them at startup, so a **full restart** is required — a reload/HUP does not re-read the `nas` table). The web user needs permission to run it (`install.sh` adds a sudoers rule). Set **blank to disable**, e.g. when FreeRADIUS runs on another host. |
+
+> The reload is best-effort: if the command fails or isn't permitted, the
+> router still saves and the Routers page shows an amber warning that a
+> manual `systemctl restart freeradius` is needed. On a `radiusd`-named
+> distro (RHEL/Rocky), override the service name accordingly.
 
 ### SmartOLT (optional)
 

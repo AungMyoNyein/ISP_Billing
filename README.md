@@ -154,6 +154,13 @@ communication is plain RADIUS: the entry is synced to the FreeRADIUS
 Disconnect-Requests (RFC 5176) via `radclient` so the rules apply
 immediately. On MikroTik, enable `/radius incoming set accept=yes`.
 
+Saving a router restarts FreeRADIUS (`RADIUS_RELOAD_COMMAND`) so it
+re-reads the `nas` table — it only loads clients at startup, so without
+this a new NAS is dropped as an *unknown client* and times out. Make sure
+**UDP 1812/1813** are open from each NAS (including the cloud security
+group). See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for the reload,
+firewall, and timeout-troubleshooting details.
+
 ## SmartOLT integration (optional)
 
 Set in backend `.env`:

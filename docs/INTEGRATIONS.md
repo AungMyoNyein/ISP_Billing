@@ -62,6 +62,56 @@ After a restart, FreeRADIUS authenticates PPPoE users created in the
 CRM, rejects suspended customers, and writes accounting that the UI
 visualises.
 
+### NAS changes trigger a FreeRADIUS restart
+
+FreeRADIUS loads its SQL clients (the `nas` table) **only at startup** —
+a reload/HUP does *not* re-read it. So when you add or edit a router, the
+backend runs `RADIUS_RELOAD_COMMAND` (default
+`sudo -n systemctl restart freeradius`) to restart the service and pick up
+the new client. Without this, a freshly added NAS sends packets that
+FreeRADIUS silently drops as an *unknown client* — the NAS reports a
+**RADIUS timeout** (no reply).
+
+- Under php-fpm the web user (`www-data`/`nginx`) needs passwordless
+  permission to run the restart; `install.sh` drops a scoped sudoers rule
+  (`/etc/sudoers.d/isp-billing-radius`). In dev (`artisan serve` as root)
+  no rule is needed.
+- Set `RADIUS_RELOAD_COMMAND` blank when FreeRADIUS runs on a different
+  host (then restart it there yourself, or use FreeRADIUS dynamic clients).
+- The reload is best-effort: a failure logs a warning and the Routers page
+  shows an amber banner — the router still saves.
+
+### Firewall / network (UDP 1812 + 1813)
+
+FreeRADIUS listens on **UDP 1812** (auth) and **UDP 1813** (accounting).
+Both must be reachable from every NAS:
+
+- Open **UDP** 1812 and 1813 in any host firewall (`ufw allow 1812,1813/udp`)
+  **and** in the cloud provider's security group / network firewall — the
+  latter is the usual culprit when the OS has no local firewall.
+- FreeRADIUS must bind to the right interface: `ipaddr = *` in
+  `sites-enabled/default` (check `ss -ulnp | grep 181` — it should show
+  `0.0.0.0:1812`, not `127.0.0.1`).
+
+> **You cannot test a RADIUS port with a TCP tool.** `telnet`/`nc`/port
+> scanners (TCP) always report it closed, and FreeRADIUS never replies to a
+> blind UDP probe, so even `nmap -sU` looks "filtered" on a working server.
+
+To actually verify reachability, run a capture on the server and fire a
+datagram from the NAS (or any outside host):
+
+```bash
+# on the RADIUS server
+sudo tcpdump -ni any 'udp and (port 1812 or port 1813)'
+
+# from the NAS / an outside host (replace with the server's public IP)
+echo test | nc -u -w1 <radius-server-ip> 1812
+```
+
+Packet shows up → the port path is open (any failure is then a client/secret
+issue — debug with `freeradius -X`). Nothing shows up → it's blocked
+upstream (security group / firewall / wrong target IP).
+
 ### Suspension model
 
 Suspension adds `Auth-Type := Reject` (denies the next authentication)
