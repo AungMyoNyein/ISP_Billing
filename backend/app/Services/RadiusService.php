@@ -319,7 +319,20 @@ class RadiusService
             return null;
         }
 
-        $result = Process::run($command);
+        // Best-effort: a non-zero exit returns a result, but an unlaunchable
+        // command (sudo/systemctl missing) or a hung restart throws — catch
+        // both so saving a router never fails on the reload.
+        try {
+            $result = Process::timeout(15)->run($command);
+        } catch (\Throwable $e) {
+            Log::warning('FreeRADIUS reload command could not run; new NAS clients will not be active until it restarts.', [
+                'command' => $command,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
         if (! $result->successful()) {
             Log::warning('FreeRADIUS reload failed; new NAS clients will not be active until it restarts.', [
                 'command' => $command,
