@@ -14,6 +14,7 @@ use App\Models\Router;
 use App\Models\ServicePlan;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
 /**
@@ -271,11 +272,20 @@ class RadiusService
             ->get();
     }
 
-    /** Keep the FreeRADIUS nas table in sync with a billing router. */
-    public function syncNas(Router $router): void
+    /**
+     * Keep the FreeRADIUS nas table in sync with a billing router.
+     *
+     * Pass $reload = false to skip the FreeRADIUS restart when syncing many
+     * routers at once (e.g. seeding); call reloadServer() once afterwards.
+     *
+     * Returns the reload outcome so callers can warn the operator: true when
+     * FreeRADIUS restarted, false when the reload command failed, null when no
+     * reload was attempted (no nas_ip, reload skipped, or reload disabled).
+     */
+    public function syncNas(Router $router, bool $reload = true): ?bool
     {
         if (! $router->nas_ip) {
-            return;
+            return null;
         }
 
         Nas::updateOrCreate(
@@ -287,6 +297,38 @@ class RadiusService
                 'description' => 'Managed by ISP Billing',
             ],
         );
+
+        return $reload ? $this->reloadServer() : null;
+    }
+
+    /**
+     * Restart FreeRADIUS so it re-reads its SQL clients from the nas table.
+     *
+     * FreeRADIUS only loads clients at startup, so a new or edited NAS is
+     * invisible to the running server until it restarts (a reload/HUP does
+     * not re-read the nas table). Best-effort: failures are logged but never
+     * thrown, so saving a router still succeeds if the reload can't run.
+     *
+     * Returns true on success, false on failure, or null when no reload
+     * command is configured (the integration is disabled).
+     */
+    public function reloadServer(): ?bool
+    {
+        $command = trim((string) config('services.radius.reload_command'));
+        if ($command === '') {
+            return null;
+        }
+
+        $result = Process::run($command);
+        if (! $result->successful()) {
+            Log::warning('FreeRADIUS reload failed; new NAS clients will not be active until it restarts.', [
+                'command' => $command,
+                'exit_code' => $result->exitCode(),
+                'error' => trim($result->errorOutput() ?: $result->output()),
+            ]);
+        }
+
+        return $result->successful();
     }
 
     /**

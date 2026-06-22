@@ -90,8 +90,12 @@ if [ "$DO_BACKEND" = 1 ]; then
   php -r 'exit(version_compare(PHP_VERSION, "8.2.0", ">=") ? 0 : 1);' \
     || die "PHP 8.2+ required, found $(php -r 'echo PHP_VERSION;')"
 
+  # Read the module list once: piping `php -m` straight into `grep -q` lets
+  # grep close the pipe on first match, killing php with SIGPIPE, which under
+  # `set -o pipefail` fails the pipeline even though the extension is present.
+  php_mods="$(php -m)"
   for ext in pdo_pgsql mbstring xml curl openssl; do
-    php -m | grep -qi "^$ext\$" || die "Missing PHP extension: $ext (e.g. apt install php8.3-${ext/pdo_/})"
+    printf '%s\n' "$php_mods" | grep -qi "^$ext\$" || die "Missing PHP extension: $ext (e.g. apt install php8.3-${ext/pdo_/})"
   done
   need psql "install postgresql-client (and a running PostgreSQL server)"
   ok "PHP $(php -r 'echo PHP_VERSION;'), Composer, PostgreSQL client found"
@@ -268,6 +272,20 @@ EOF
     as_root systemctl enable "$svc" >/dev/null 2>&1 || true
     as_root systemctl restart "$svc" \
       || { warn "FreeRADIUS restart failed — check: journalctl -u $svc"; return 0; }
+
+    # Let the web user restart FreeRADIUS so a NAS change reloads its SQL
+    # clients (RADIUS_RELOAD_COMMAND). Scoped NOPASSWD rule for just this
+    # service; harmless if the app runs as root (artisan serve in dev).
+    local webuser="" u
+    for u in www-data nginx apache; do
+      id "$u" >/dev/null 2>&1 && { webuser=$u; break; }
+    done
+    if [ -n "$webuser" ] && [ -d /etc/sudoers.d ]; then
+      printf '%s ALL=(root) NOPASSWD: /usr/bin/systemctl restart %s\n' "$webuser" "$svc" \
+        | as_root install -m 440 /dev/stdin /etc/sudoers.d/isp-billing-radius 2>/dev/null \
+        && ok "Granted $webuser NOPASSWD restart of $svc (RADIUS_RELOAD_COMMAND)" \
+        || warn "Could not write /etc/sudoers.d/isp-billing-radius — set RADIUS_RELOAD_COMMAND manually"
+    fi
   else
     as_root service "$svc" restart >/dev/null 2>&1 \
       || { warn "FreeRADIUS restart failed — start it manually"; return 0; }
