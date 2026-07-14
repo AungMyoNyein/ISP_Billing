@@ -302,6 +302,27 @@ class RadiusService
     }
 
     /**
+     * Drop a router's NAS client from FreeRADIUS.
+     *
+     * Deleting the router alone is not enough: the nas row would survive, and
+     * a decommissioned router would keep authenticating customers until the
+     * next restart. Reloads for the same reason syncNas() does — FreeRADIUS
+     * only reads its SQL clients at startup.
+     *
+     * Returns the reload outcome (see syncNas()).
+     */
+    public function removeNas(Router $router, bool $reload = true): ?bool
+    {
+        if (! $router->nas_ip) {
+            return null;
+        }
+
+        Nas::where('nasname', $router->nas_ip)->delete();
+
+        return $reload ? $this->reloadServer() : null;
+    }
+
+    /**
      * Restart FreeRADIUS so it re-reads its SQL clients from the nas table.
      *
      * FreeRADIUS only loads clients at startup, so a new or edited NAS is

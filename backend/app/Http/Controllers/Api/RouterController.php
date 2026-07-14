@@ -56,10 +56,14 @@ class RouterController extends Controller
     public function destroy(Router $router): JsonResponse
     {
         abort_if($router->customers()->exists(), 422, 'Router has customers assigned; reassign them first.');
+        $reloaded = $this->radius->removeNas($router);
         $router->delete();
         AuditLog::record('deleted', $router, ['name' => $router->name]);
 
-        return response()->json(['message' => 'Router deleted.']);
+        return response()->json([
+            'message' => 'Router deleted.',
+            'radius_reloaded' => $reloaded,
+        ]);
     }
 
     /** Connectivity check: ICMP ping + RADIUS CoA probe + radacct session count. */
