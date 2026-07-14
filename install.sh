@@ -140,12 +140,19 @@ create_databases() {
   run_mysql "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
   run_mysql "CREATE DATABASE IF NOT EXISTS \`$RADIUS_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
+  # The password is interpolated into SQL run as root, so escape backslashes
+  # and quotes: a DB_PASS containing ' would otherwise break the statement,
+  # or run as SQL. (The generated default is alphanumeric; a supplied one
+  # need not be.)
+  local sql_pass
+  sql_pass=$(printf '%s' "$DB_PASS" | sed "s/\\\\/\\\\\\\\/g; s/'/\\\\'/g")
+
   local h
   for h in $hosts; do
     # CREATE USER IF NOT EXISTS won't reset an existing password; ALTER does,
     # keeping a re-run in step with the password .env already holds.
-    run_mysql "CREATE USER IF NOT EXISTS '$DB_USER'@'$h' IDENTIFIED BY '$DB_PASS';"
-    run_mysql "ALTER USER '$DB_USER'@'$h' IDENTIFIED BY '$DB_PASS';"
+    run_mysql "CREATE USER IF NOT EXISTS '$DB_USER'@'$h' IDENTIFIED BY '$sql_pass';"
+    run_mysql "ALTER USER '$DB_USER'@'$h' IDENTIFIED BY '$sql_pass';"
     run_mysql "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'$h';"
     run_mysql "GRANT ALL PRIVILEGES ON \`$RADIUS_DB_NAME\`.* TO '$DB_USER'@'$h';"
   done

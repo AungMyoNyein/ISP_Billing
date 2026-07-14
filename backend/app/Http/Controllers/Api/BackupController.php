@@ -91,7 +91,13 @@ class BackupController extends Controller
 
         // The dump is fed on stdin as a stream, so a large backup is never
         // held in memory. The DROP TABLE statements in it do the "clean".
-        $handle = fopen($path, 'r');
+        $handle = @fopen($path, 'r');
+
+        // Without this, a failed open would feed mysql an empty stdin: it
+        // exits 0 and we would report a successful restore that did nothing.
+        if ($handle === false) {
+            return response()->json(['message' => 'Restore failed: cannot read '.$data['name']], 500);
+        }
 
         $result = Process::env(['MYSQL_PWD' => $config['password']])
             ->timeout(600)

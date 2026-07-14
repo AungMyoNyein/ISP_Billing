@@ -282,21 +282,35 @@ class RadiusService
      * FreeRADIUS restarted, false when the reload command failed, null when no
      * reload was attempted (no nas_ip, reload skipped, or reload disabled).
      */
-    public function syncNas(Router $router, bool $reload = true): ?bool
+    public function syncNas(Router $router, bool $reload = true, ?string $previousNasIp = null): ?bool
     {
-        if (! $router->nas_ip) {
-            return null;
+        $changed = false;
+
+        // The nas table is keyed by IP, so re-pointing a router at a new
+        // address would otherwise leave the old one behind as a still-valid
+        // client — it would keep authenticating with the same secret.
+        // Callers pass the pre-update value; store/seed have none.
+        if ($previousNasIp && $previousNasIp !== $router->nas_ip) {
+            Nas::where('nasname', $previousNasIp)->delete();
+            $changed = true;
         }
 
-        Nas::updateOrCreate(
-            ['nasname' => $router->nas_ip],
-            [
-                'shortname' => $router->name,
-                'type' => 'other',
-                'secret' => $router->radius_secret ?: 'secret',
-                'description' => 'Managed by ISP Billing',
-            ],
-        );
+        if ($router->nas_ip) {
+            Nas::updateOrCreate(
+                ['nasname' => $router->nas_ip],
+                [
+                    'shortname' => $router->name,
+                    'type' => 'other',
+                    'secret' => $router->radius_secret ?: 'secret',
+                    'description' => 'Managed by ISP Billing',
+                ],
+            );
+            $changed = true;
+        }
+
+        if (! $changed) {
+            return null;
+        }
 
         return $reload ? $this->reloadServer() : null;
     }

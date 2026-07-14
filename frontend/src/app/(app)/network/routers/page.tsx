@@ -33,7 +33,14 @@ export default function RoutersPage() {
   async function remove(router: Router) {
     if (!confirm(`Delete router "${router.name}"?`)) return;
     try {
-      await api(`/routers/${router.id}`, { method: "DELETE" });
+      const result = await api<SaveResult>(`/routers/${router.id}`, { method: "DELETE" });
+      // A failed reload leaves the deleted router authorised as a NAS client
+      // until FreeRADIUS restarts, so the operator has to know.
+      setReloadWarning(
+        result.radius_reloaded === false
+          ? "Router deleted, but FreeRADIUS could not be restarted automatically — it stays an authorised RADIUS client until you restart it (systemctl restart freeradius)."
+          : null,
+      );
       reload();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Delete failed");

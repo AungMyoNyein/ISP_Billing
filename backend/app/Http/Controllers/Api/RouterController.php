@@ -46,8 +46,11 @@ class RouterController extends Controller
         if (($data['radius_secret'] ?? null) === '') {
             unset($data['radius_secret']); // blank means keep the stored secret
         }
+        // Capture before the save: update() re-syncs the model's original
+        // attributes, so afterwards the old IP is no longer recoverable.
+        $previousNasIp = $router->nas_ip;
         $router->update($data);
-        $reloaded = $this->radius->syncNas($router);
+        $reloaded = $this->radius->syncNas($router, previousNasIp: $previousNasIp);
         AuditLog::record('updated', $router, array_diff_key($router->getChanges(), array_flip(['radius_secret'])));
 
         return response()->json($router->toArray() + ['radius_reloaded' => $reloaded]);
@@ -95,7 +98,10 @@ class RouterController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique('routers')->ignore($router)->withoutTrashed()],
-            'nas_ip' => ['required', 'string', 'max:45'],
+            // Unique: the nas table is keyed by IP, so two routers sharing one
+            // would overwrite each other's secret, and deleting either would
+            // revoke the client out from under the other.
+            'nas_ip' => ['required', 'string', 'max:45', Rule::unique('routers', 'nas_ip')->ignore($router)->withoutTrashed()],
             'coa_port' => ['sometimes', 'integer', 'min:1', 'max:65535'],
             'radius_secret' => [$router ? 'sometimes' : 'required', 'nullable', 'string', 'max:64'],
             'notes' => ['nullable', 'string', 'max:2000'],
