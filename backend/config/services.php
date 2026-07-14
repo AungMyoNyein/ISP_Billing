@@ -40,4 +40,12 @@ return [
         'api_key' => env('SMARTOLT_API_KEY'),
     ],
 
+    'radius' => [
+        // Command run after the nas table changes so FreeRADIUS re-reads its
+        // SQL clients. It only loads clients at startup, so a full restart is
+        // required (a reload/HUP does not re-read the nas table). Set empty to
+        // disable; the web user needs permission to run it (e.g. a sudoers rule).
+        'reload_command' => env('RADIUS_RELOAD_COMMAND', 'sudo -n systemctl restart freeradius'),
+    ],
+
 ];

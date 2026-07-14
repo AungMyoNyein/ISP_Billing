@@ -29,10 +29,10 @@ class RouterController extends Controller
     public function store(Request $request): JsonResponse
     {
         $router = Router::create($this->validateData($request));
-        $this->radius->syncNas($router);
+        $reloaded = $this->radius->syncNas($router);
         AuditLog::record('created', $router, ['name' => $router->name]);
 
-        return response()->json($router, 201);
+        return response()->json($router->toArray() + ['radius_reloaded' => $reloaded], 201);
     }
 
     public function show(Router $router): JsonResponse
@@ -47,10 +47,10 @@ class RouterController extends Controller
             unset($data['radius_secret']); // blank means keep the stored secret
         }
         $router->update($data);
-        $this->radius->syncNas($router);
+        $reloaded = $this->radius->syncNas($router);
         AuditLog::record('updated', $router, array_diff_key($router->getChanges(), array_flip(['radius_secret'])));
 
-        return response()->json($router);
+        return response()->json($router->toArray() + ['radius_reloaded' => $reloaded]);
     }
 
     public function destroy(Router $router): JsonResponse

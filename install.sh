@@ -90,8 +90,12 @@ if [ "$DO_BACKEND" = 1 ]; then
   php -r 'exit(version_compare(PHP_VERSION, "8.2.0", ">=") ? 0 : 1);' \
     || die "PHP 8.2+ required, found $(php -r 'echo PHP_VERSION;')"
 
+  # Read the module list once: piping `php -m` straight into `grep -q` lets
+  # grep close the pipe on first match, killing php with SIGPIPE, which under
+  # `set -o pipefail` fails the pipeline even though the extension is present.
+  php_mods="$(php -m)"
   for ext in pdo_pgsql mbstring xml curl openssl; do
-    php -m | grep -qi "^$ext\$" || die "Missing PHP extension: $ext (e.g. apt install php8.3-${ext/pdo_/})"
+    printf '%s\n' "$php_mods" | grep -qi "^$ext\$" || die "Missing PHP extension: $ext (e.g. apt install php8.3-${ext/pdo_/})"
   done
   need psql "install postgresql-client (and a running PostgreSQL server)"
   ok "PHP $(php -r 'echo PHP_VERSION;'), Composer, PostgreSQL client found"
@@ -268,6 +272,44 @@ EOF
     as_root systemctl enable "$svc" >/dev/null 2>&1 || true
     as_root systemctl restart "$svc" \
       || { warn "FreeRADIUS restart failed — check: journalctl -u $svc"; return 0; }
+
+    # Let the web user restart FreeRADIUS so a NAS change reloads its SQL
+    # clients (RADIUS_RELOAD_COMMAND). Scoped NOPASSWD rule for just this
+    # service; harmless if the app runs as root (artisan serve in dev).
+    #
+    # sudo matches the rule against the command's absolute path, and the unit
+    # is "radiusd" (not "freeradius") on Red Hat, so the rule and the .env
+    # command below are both built from $sctl/$svc to keep them identical.
+    local sctl webuser="" u
+    sctl=$(command -v systemctl)
+    for u in www-data nginx apache; do
+      id "$u" >/dev/null 2>&1 && { webuser=$u; break; }
+    done
+    if [ -n "$webuser" ] && [ -d /etc/sudoers.d ]; then
+      local sudo_tmp vs=""
+      sudo_tmp=$(mktemp)
+      printf '%s ALL=(root) NOPASSWD: %s restart %s\n' "$webuser" "$sctl" "$svc" > "$sudo_tmp"
+
+      # A malformed drop-in breaks sudo for every user, so never install one
+      # that visudo rejects.
+      command -v visudo >/dev/null 2>&1 && vs=visudo
+      [ -z "$vs" ] && [ -x /usr/sbin/visudo ] && vs=/usr/sbin/visudo
+      if { [ -z "$vs" ] || as_root "$vs" -cqf "$sudo_tmp" >/dev/null 2>&1; } \
+         && as_root install -m 440 -o root -g root "$sudo_tmp" /etc/sudoers.d/isp-billing-radius 2>/dev/null; then
+        ok "Granted $webuser NOPASSWD restart of $svc (RADIUS_RELOAD_COMMAND)"
+      else
+        warn "Could not write /etc/sudoers.d/isp-billing-radius — set RADIUS_RELOAD_COMMAND manually"
+      fi
+      rm -f "$sudo_tmp"
+    fi
+
+    # Point .env at the same unit/path the rule allows — but only when it still
+    # holds the stock default, so an operator's custom command is never clobbered.
+    if [ -f "$ROOT/backend/.env" ]; then
+      as_root sed -i -E \
+        "s|^RADIUS_RELOAD_COMMAND=\"?sudo -n systemctl restart freeradius\"?[[:space:]]*$|RADIUS_RELOAD_COMMAND=\"sudo -n $sctl restart $svc\"|" \
+        "$ROOT/backend/.env"
+    fi
   else
     as_root service "$svc" restart >/dev/null 2>&1 \
       || { warn "FreeRADIUS restart failed — start it manually"; return 0; }

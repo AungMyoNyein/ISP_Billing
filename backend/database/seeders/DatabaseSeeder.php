@@ -100,8 +100,9 @@ class DatabaseSeeder extends Seeder
 
         $radius = app(RadiusService::class);
         foreach ($routers as $router) {
-            $radius->syncNas($router);
+            $radius->syncNas($router, reload: false);
         }
+        $radius->reloadServer();
 
         // ---- Customers + billing history ----------------------------
         if (Customer::count() > 0) {

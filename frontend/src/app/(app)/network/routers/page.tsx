@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { usePaginated } from "@/hooks/usePaginated";
-import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Pagination, Table, inputCls } from "@/components/ui";
+import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Pagination, Table, WarningNote, inputCls } from "@/components/ui";
 import type { Router } from "@/lib/types";
 
 type CheckResult = { ping: boolean; coa: boolean; online_sessions: number };
@@ -13,6 +13,7 @@ export default function RoutersPage() {
   const [editing, setEditing] = useState<Router | null>(null);
   const [creating, setCreating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reloadWarning, setReloadWarning] = useState<string | null>(null);
   const [checkingId, setCheckingId] = useState<number | null>(null);
   const [checks, setChecks] = useState<Record<number, CheckResult>>({});
 
@@ -47,6 +48,7 @@ export default function RoutersPage() {
         actions={<Button onClick={() => setCreating(true)}>+ Add Router</Button>}
       />
       <ErrorNote message={error ?? actionError} />
+      <WarningNote message={reloadWarning} onDismiss={() => setReloadWarning(null)} />
 
       <Card>
         <Table
@@ -89,13 +91,27 @@ export default function RoutersPage() {
 
       <Modal title={editing ? `Edit ${editing.name}` : "Add Router"} open={creating || !!editing}
         onClose={() => { setCreating(false); setEditing(null); }}>
-        <RouterForm router={editing ?? undefined} onSaved={() => { setCreating(false); setEditing(null); reload(); }} />
+        <RouterForm
+          router={editing ?? undefined}
+          onSaved={(radiusReloaded) => {
+            setCreating(false);
+            setEditing(null);
+            setReloadWarning(
+              radiusReloaded === false
+                ? "Router saved, but FreeRADIUS could not be restarted automatically — the change won't take effect until you restart it (systemctl restart freeradius)."
+                : null,
+            );
+            reload();
+          }}
+        />
       </Modal>
     </div>
   );
 }
 
-function RouterForm({ router, onSaved }: { router?: Router; onSaved: () => void }) {
+type SaveResult = { radius_reloaded: boolean | null };
+
+function RouterForm({ router, onSaved }: { router?: Router; onSaved: (radiusReloaded: boolean | null) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
@@ -120,9 +136,10 @@ function RouterForm({ router, onSaved }: { router?: Router; onSaved: () => void 
         coa_port: Number(form.coa_port),
       };
       if (router && !form.radius_secret) delete body.radius_secret;
-      if (router) await api(`/routers/${router.id}`, { method: "PUT", body });
-      else await api("/routers", { method: "POST", body });
-      onSaved();
+      const saved = router
+        ? await api<SaveResult>(`/routers/${router.id}`, { method: "PUT", body })
+        : await api<SaveResult>("/routers", { method: "POST", body });
+      onSaved(saved.radius_reloaded);
     } catch (e) {
       if (e instanceof ApiError) { setError(e.message); setFieldErrors(e.errors ?? {}); }
       else setError("Failed to save router");

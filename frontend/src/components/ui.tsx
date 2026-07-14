@@ -167,3 +167,15 @@ export function ErrorNote({ message }: { message?: string | null }) {
   if (!message) return null;
   return <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{message}</div>;
 }
+
+export function WarningNote({ message, onDismiss }: { message?: string | null; onDismiss?: () => void }) {
+  if (!message) return null;
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <span>{message}</span>
+      {onDismiss && (
+        <button type="button" onClick={onDismiss} className="shrink-0 font-medium text-amber-700 hover:text-amber-900">Dismiss</button>
+      )}
+    </div>
+  );
+}
