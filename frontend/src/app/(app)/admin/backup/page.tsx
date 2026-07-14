@@ -84,7 +84,7 @@ export default function BackupPage() {
 
   return (
     <div>
-      <PageHeader title="Backup & Restore" subtitle="PostgreSQL dumps of the main billing database"
+      <PageHeader title="Backup & Restore" subtitle="MySQL dumps of the main billing database"
         actions={<Button onClick={create} disabled={busy}>{busy ? "Working…" : "Create Backup Now"}</Button>} />
       <ErrorNote message={error} />
       {notice && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}

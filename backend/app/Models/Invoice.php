@@ -63,11 +63,11 @@ class Invoice extends Model
             ->when($filters['search'] ?? null, function (Builder $q, string $search) {
                 $like = '%'.$search.'%';
                 $q->where(function (Builder $q) use ($like) {
-                    $q->where('invoice_number', 'ilike', $like)
+                    $q->where('invoice_number', 'like', $like)
                         ->orWhereHas('customer', function (Builder $q) use ($like) {
-                            $q->where('name', 'ilike', $like)
-                                ->orWhere('username', 'ilike', $like)
-                                ->orWhere('customer_code', 'ilike', $like);
+                            $q->where('name', 'like', $like)
+                                ->orWhere('username', 'like', $like)
+                                ->orWhere('customer_code', 'like', $like);
                         });
                 });
             })

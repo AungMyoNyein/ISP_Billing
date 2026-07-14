@@ -17,7 +17,7 @@ Production-ready ISP billing & RADIUS management system.
         ┌────────────────┼─────────────────┐
         ▼                ▼                 ▼
  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
- │ PostgreSQL  │  │ FreeRADIUS  │  │ NAS routers │
+ │ MySQL       │  │ FreeRADIUS  │  │ NAS routers │
  │ Main DB     │  │ SQL schema  │  │ RADIUS only │
  └─────────────┘  └─────────────┘  └─────────────┘
         │
@@ -33,7 +33,7 @@ Production-ready ISP billing & RADIUS management system.
 | Layer      | Tech                                              |
 |------------|---------------------------------------------------|
 | Backend    | Laravel 12, PHP 8.3, Sanctum token auth           |
-| Database   | PostgreSQL (`isp_billing` main + `radius` schema) |
+| Database   | MySQL 8 (`isp_billing` main + `radius` schema) |
 | Frontend   | Next.js 15 (App Router), TailwindCSS 4            |
 | AAA        | FreeRADIUS SQL tables (radcheck/radreply/radusergroup/radacct/nas) |
 | Network    | RADIUS only — NAS table sync + RFC 5176 disconnects via `radclient` |
@@ -48,7 +48,7 @@ Production-ready ISP billing & RADIUS management system.
 - **Invoices** — invoice number, customer, plan, amount, billing date, due date, status (paid/unpaid/suspended/cancelled), Mark Paid flow.
 - **Network** — NAS routers (CRUD, synced to the FreeRADIUS `nas` table, RADIUS session kick) and Online Sessions (live radacct view, 15s refresh).
 - **Reports** — monthly revenue, customer growth, plan distribution, receivables.
-- **Administration** — Users, Roles & Permissions (granular RBAC), System Settings, Audit Logs, Backup & Restore (pg_dump/pg_restore).
+- **Administration** — Users, Roles & Permissions (granular RBAC), System Settings, Audit Logs, Backup & Restore (mysqldump/mysql).
 - **Status Page** — NAS routers with online sessions and last accounting activity, FreeRADIUS status, database status, SmartOLT status.
 
 ## Billing rules (enforced automatically)
@@ -95,9 +95,9 @@ php artisan migrate --seed
 php artisan serve            # http://localhost:8000
 ```
 
-The RADIUS connection supports both PostgreSQL and MySQL FreeRADIUS
-schemas (`RADIUS_DB_CONNECTION=pgsql|mysql`). If FreeRADIUS already
-created its tables, the migration leaves them untouched.
+The RADIUS connection uses the MySQL FreeRADIUS schema
+(`RADIUS_DB_CONNECTION=mysql`). If FreeRADIUS already created its
+tables, the migration leaves them untouched.
 
 **Scheduler (required in production)** — add to crontab:
 

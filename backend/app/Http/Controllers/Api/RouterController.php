@@ -19,7 +19,7 @@ class RouterController extends Controller
     public function index(Request $request): JsonResponse
     {
         $routers = Router::withCount('customers')
-            ->when($request->filled('search'), fn ($q) => $q->where('name', 'ilike', '%'.$request->string('search').'%'))
+            ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%'))
             ->orderBy('name')
             ->paginate($request->integer('per_page', 50));
 

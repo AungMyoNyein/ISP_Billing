@@ -107,20 +107,22 @@ fi
 echo "── NAS clients loaded from the nas table ───────────────────"
 # Read DB creds from backend/.env if present, else fall back to peer auth.
 ENV="$(cd "$(dirname "$0")/.." && pwd)/backend/.env"
-psql_nas() {
+mysql_nas() {
+  # -N -B: no column headers, tab-separated output.
   if [ -f "$ENV" ]; then
     local h p d u pw
     h=$(grep -E '^RADIUS_DB_HOST=' "$ENV" | cut -d= -f2-); p=$(grep -E '^RADIUS_DB_PORT=' "$ENV" | cut -d= -f2-)
     d=$(grep -E '^RADIUS_DB_DATABASE=' "$ENV" | cut -d= -f2-); u=$(grep -E '^RADIUS_DB_USERNAME=' "$ENV" | cut -d= -f2-)
     pw=$(grep -E '^RADIUS_DB_PASSWORD=' "$ENV" | cut -d= -f2-)
-    PGPASSWORD="$pw" psql -h "${h:-127.0.0.1}" -p "${p:-5432}" -U "${u:-radius}" -d "${d:-radius}" -tAc "$1" 2>/dev/null
-  elif [ "$(id -u)" = 0 ]; then
-    su -s /bin/sh postgres -c "psql -d radius -tAc \"$1\"" 2>/dev/null
+    MYSQL_PWD="$pw" mysql -h "${h:-127.0.0.1}" -P "${p:-3306}" -u "${u:-radius}" -N -B -D "${d:-radius}" -e "$1" 2>/dev/null
   else
-    sudo -u postgres psql -d radius -tAc "$1" 2>/dev/null
+    # No .env: fall back to root's socket auth (stock MySQL 8 on Debian).
+    mysql --protocol=socket -u root -N -B -D radius -e "$1" 2>/dev/null
   fi
 }
-nas=$(psql_nas "SELECT nasname || '  (' || shortname || ')' FROM nas ORDER BY nasname;")
+# CONCAT, not ||: MySQL reads || as logical OR by default, which would
+# silently print 0 for every row instead of the nasname.
+nas=$(mysql_nas "SELECT CONCAT(nasname, '  (', shortname, ')') FROM nas ORDER BY nasname;")
 if [ -z "$nas" ]; then
   warn "Cannot read the nas table (check RADIUS_DB_* in backend/.env) or it is empty"
 else

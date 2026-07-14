@@ -8,9 +8,9 @@ follows at the end.
 
 | Component  | Version  | Notes                                            |
 |------------|----------|--------------------------------------------------|
-| PHP        | 8.2+     | extensions: `pdo_pgsql`, `mbstring`, `xml`, `curl`, `openssl` |
+| PHP        | 8.2+     | extensions: `pdo_mysql`, `mbstring`, `xml`, `curl`, `openssl` |
 | Composer   | 2.x      |                                                  |
-| PostgreSQL | 14+      | server + `pg_dump`/`pg_restore` for backups      |
+| MySQL      | 8.0+     | server + `mysqldump`/`mysql` for backups         |
 | Node.js    | 18.18+   | 20 LTS recommended                               |
 | FreeRADIUS | 3.x      | optional but required for real AAA               |
 | NAS router | any RADIUS-capable BRAS | RADIUS auth/acct + incoming Disconnect (RFC 5176, port 3799) |
@@ -18,8 +18,8 @@ follows at the end.
 On Debian/Ubuntu:
 
 ```bash
-apt install php8.3-cli php8.3-pgsql php8.3-xml php8.3-curl php8.3-mbstring \
-            composer postgresql postgresql-client nodejs npm
+apt install php8.3-cli php8.3-mysql php8.3-xml php8.3-curl php8.3-mbstring \
+            composer mysql-server mysql-client nodejs npm
 ```
 
 ## Option A — automated install
@@ -33,8 +33,8 @@ apt install php8.3-cli php8.3-pgsql php8.3-xml php8.3-curl php8.3-mbstring \
 
 The script:
 
-1. verifies PHP/Composer/Node/psql and required PHP extensions;
-2. creates the PostgreSQL role and the `isp_billing` + `radius` databases
+1. verifies PHP/Composer/Node/mysql and required PHP extensions;
+2. creates the MySQL user and the `isp_billing` + `radius` databases
    (idempotent — safe to re-run);
 3. installs backend dependencies, writes `backend/.env` with a generated
    DB password and app key, runs migrations (and seeders unless `--no-seed`);
@@ -55,9 +55,10 @@ Next.js proxies it to the backend (`BACKEND_URL`, default
 CORS setup. Set `API_URL` to a full URL only if browsers should hit
 the backend directly.
 
-If the script cannot reach PostgreSQL as a superuser it falls back to
-`psql -U postgres` over TCP; set `PGSUPER_USER` / `PGSUPER_PASS` if your
-superuser differs.
+The script connects as MySQL root over the local socket (stock MySQL 8 on
+Debian/Ubuntu authenticates `root@localhost` via `auth_socket`, so there is
+no password). If that is unavailable it falls back to TCP — set
+`MYSQL_ROOT_USER` / `MYSQL_ROOT_PASS` for that case.
 
 ## Option B — manual install
 
@@ -180,11 +181,11 @@ which also removes the need for CORS).
 - [ ] Change all seeded passwords (or install with `--no-seed`)
 - [ ] `APP_DEBUG=false`, unique `APP_KEY`
 - [ ] TLS on both API and UI
-- [ ] PostgreSQL only reachable from the app host
+- [ ] MySQL only reachable from the app host (`bind-address = 127.0.0.1`)
 - [ ] NAS routers accept RADIUS CoA/Disconnect only from the RADIUS host, with strong shared secrets
 - [ ] Cron entry installed; verify with `php artisan schedule:list`
 - [ ] Regular backups: **Administration → Backup & Restore** or
-      `pg_dump` from cron; test a restore once
+      `mysqldump` from cron; test a restore once
 
 ## Upgrading
 

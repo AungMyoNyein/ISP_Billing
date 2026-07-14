@@ -3,7 +3,7 @@
 # ISP Billing System installer.
 #
 # Installs the Laravel backend and Next.js frontend, creates the
-# PostgreSQL databases (main + FreeRADIUS schema) and seeds demo data.
+# MySQL databases (main + FreeRADIUS schema) and seeds demo data.
 #
 # Usage:
 #   ./install.sh                 # full install with prompts/defaults
@@ -18,7 +18,7 @@
 # automatically and the service is restarted.
 #
 # Configurable via environment variables (defaults shown):
-#   DB_HOST=127.0.0.1  DB_PORT=5432
+#   DB_HOST=127.0.0.1  DB_PORT=3306
 #   DB_NAME=isp_billing  RADIUS_DB_NAME=radius
 #   DB_USER=isp_billing  DB_PASS=<generated>
 #   API_URL=/api                 (proxied to BACKEND_URL by Next.js)
@@ -47,12 +47,12 @@ for arg in "$@"; do
 done
 
 DB_HOST="${DB_HOST:-127.0.0.1}"
-DB_PORT="${DB_PORT:-5432}"
+DB_PORT="${DB_PORT:-3306}"
 DB_NAME="${DB_NAME:-isp_billing}"
 RADIUS_DB_NAME="${RADIUS_DB_NAME:-radius}"
 DB_USER="${DB_USER:-isp_billing}"
-# On a re-run, reuse the password from the existing .env — ALTER ROLE below
-# would otherwise reset the role to a new password the untouched .env lacks.
+# On a re-run, reuse the password from the existing .env — ALTER USER below
+# would otherwise reset the user to a new password the untouched .env lacks.
 if [ -z "${DB_PASS:-}" ] && [ -f "$ROOT/backend/.env" ]; then
   DB_PASS="$(sed -n 's/^DB_PASSWORD=//p' "$ROOT/backend/.env" | head -n1 | tr -d '"')"
 fi
@@ -94,11 +94,11 @@ if [ "$DO_BACKEND" = 1 ]; then
   # grep close the pipe on first match, killing php with SIGPIPE, which under
   # `set -o pipefail` fails the pipeline even though the extension is present.
   php_mods="$(php -m)"
-  for ext in pdo_pgsql mbstring xml curl openssl; do
+  for ext in pdo_mysql mbstring xml curl openssl; do
     printf '%s\n' "$php_mods" | grep -qi "^$ext\$" || die "Missing PHP extension: $ext (e.g. apt install php8.3-${ext/pdo_/})"
   done
-  need psql "install postgresql-client (and a running PostgreSQL server)"
-  ok "PHP $(php -r 'echo PHP_VERSION;'), Composer, PostgreSQL client found"
+  need mysql "install mysql-client (and a running MySQL 8 server)"
+  ok "PHP $(php -r 'echo PHP_VERSION;'), Composer, MySQL client found"
 fi
 
 if [ "$DO_FRONTEND" = 1 ]; then
@@ -111,24 +111,45 @@ fi
 
 # ---------------------------------------------------------------- database
 create_databases() {
-  info "Creating PostgreSQL role '$DB_USER' and databases '$DB_NAME', '$RADIUS_DB_NAME'…"
+  info "Creating MySQL user '$DB_USER' and databases '$DB_NAME', '$RADIUS_DB_NAME'…"
 
-  # Prefer local socket as the postgres superuser when available.
-  # SQL is piped via stdin (-f -) so quoting survives su/sudo intact.
-  run_psql() {
-    if command -v sudo >/dev/null 2>&1 && sudo -n -u postgres true 2>/dev/null; then
-      # cd / so psql does not warn when postgres cannot read the caller's cwd
-      printf '%s\n' "$1" | (cd / && sudo -u postgres psql -v ON_ERROR_STOP=1 -f -)
-    elif [ "$(id -u)" = 0 ] && id postgres >/dev/null 2>&1; then
-      printf '%s\n' "$1" | su - postgres -c "psql -v ON_ERROR_STOP=1 -f -"
+  # Prefer the local socket as root: a stock MySQL 8 on Debian/Ubuntu
+  # authenticates root@localhost via auth_socket, so no password exists.
+  # Fall back to TCP with MYSQL_ROOT_USER/MYSQL_ROOT_PASS.
+  run_mysql() {
+    if [ "$(id -u)" = 0 ] && mysql --protocol=socket -u root -e 'SELECT 1' >/dev/null 2>&1; then
+      printf '%s\n' "$1" | mysql --protocol=socket -u root
+    elif command -v sudo >/dev/null 2>&1 && sudo -n mysql --protocol=socket -u root -e 'SELECT 1' >/dev/null 2>&1; then
+      printf '%s\n' "$1" | sudo mysql --protocol=socket -u root
     else
-      printf '%s\n' "$1" | PGPASSWORD="${PGSUPER_PASS:-}" psql -h "$DB_HOST" -p "$DB_PORT" -U "${PGSUPER_USER:-postgres}" -v ON_ERROR_STOP=1 -f -
+      printf '%s\n' "$1" | MYSQL_PWD="${MYSQL_ROOT_PASS:-}" \
+        mysql -h "$DB_HOST" -P "$DB_PORT" -u "${MYSQL_ROOT_USER:-root}"
     fi
   }
 
-  run_psql "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN CREATE ROLE \"$DB_USER\" LOGIN PASSWORD '$DB_PASS'; ELSE ALTER ROLE \"$DB_USER\" PASSWORD '$DB_PASS'; END IF; END \$\$;"
-  run_psql "SELECT 'CREATE DATABASE \"$DB_NAME\" OWNER \"$DB_USER\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')\\gexec"
-  run_psql "SELECT 'CREATE DATABASE \"$RADIUS_DB_NAME\" OWNER \"$DB_USER\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$RADIUS_DB_NAME')\\gexec"
+  # MySQL grants are per (user, host). A local install connects over TCP to
+  # 127.0.0.1 and over the socket as 'localhost', and MySQL treats those as
+  # different hosts — so grant both, or FreeRADIUS/PHP hit "Access denied"
+  # depending on which transport they pick. A remote DB_HOST gets '%'.
+  local hosts="localhost 127.0.0.1"
+  case "$DB_HOST" in
+    127.0.0.1|localhost|::1) ;;
+    *) hosts="%" ;;
+  esac
+
+  run_mysql "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+  run_mysql "CREATE DATABASE IF NOT EXISTS \`$RADIUS_DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+  local h
+  for h in $hosts; do
+    # CREATE USER IF NOT EXISTS won't reset an existing password; ALTER does,
+    # keeping a re-run in step with the password .env already holds.
+    run_mysql "CREATE USER IF NOT EXISTS '$DB_USER'@'$h' IDENTIFIED BY '$DB_PASS';"
+    run_mysql "ALTER USER '$DB_USER'@'$h' IDENTIFIED BY '$DB_PASS';"
+    run_mysql "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'$h';"
+    run_mysql "GRANT ALL PRIVILEGES ON \`$RADIUS_DB_NAME\`.* TO '$DB_USER'@'$h';"
+  done
+  run_mysql "FLUSH PRIVILEGES;"
   ok "Databases ready"
 }
 
@@ -207,8 +228,15 @@ configure_freeradius() {
 # Generated by install.sh — connects FreeRADIUS to the ISP Billing
 # radius database. The distro's original file is kept as sql.dist.
 sql {
-	dialect = "postgresql"
+	dialect = "mysql"
 	driver = "rlm_sql_\${dialect}"
+
+	# rlm_sql_mysql defaults to requiring TLS on some builds; the DB is local.
+	mysql {
+		tls {
+			required = no
+		}
+	}
 
 	server = "$DB_HOST"
 	port = $DB_PORT
@@ -368,7 +396,7 @@ install_service() {
   root_run tee "/etc/systemd/system/$name.service" >/dev/null <<EOF
 [Unit]
 Description=$desc
-After=network.target postgresql.service
+After=network.target mysql.service
 
 [Service]
 WorkingDirectory=$workdir

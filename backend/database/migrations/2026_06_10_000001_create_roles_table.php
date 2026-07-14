@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
@@ -12,7 +13,9 @@ return new class extends Migration
             $table->id();
             $table->string('name')->unique();
             $table->string('description')->nullable();
-            $table->json('permissions')->default('[]');
+            // MySQL rejects a literal default on a JSON column; it only accepts
+            // a default *expression*, which must be parenthesised.
+            $table->json('permissions')->default(new Expression('(JSON_ARRAY())'));
             $table->boolean('is_system')->default(false);
             $table->timestamps();
         });

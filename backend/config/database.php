@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'mysql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -84,40 +84,25 @@ return [
             ]) : [],
         ],
 
-        'pgsql' => [
-            'driver' => 'pgsql',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
-            'charset' => env('DB_CHARSET', 'utf8'),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
-        ],
-
         /*
         | FreeRADIUS database (radcheck, radreply, radusergroup, radacct).
-        | Supports both MySQL and PostgreSQL FreeRADIUS schemas via
-        | RADIUS_DB_CONNECTION=mysql|pgsql.
+        | Its schema is created by this app's migrations on the "radius"
+        | connection, and FreeRADIUS itself reads it via rlm_sql_mysql.
         */
         'radius' => [
-            'driver' => env('RADIUS_DB_CONNECTION', 'pgsql'),
+            'driver' => env('RADIUS_DB_CONNECTION', 'mysql'),
             'host' => env('RADIUS_DB_HOST', '127.0.0.1'),
-            'port' => env('RADIUS_DB_PORT', '5432'),
+            'port' => env('RADIUS_DB_PORT', '3306'),
             'database' => env('RADIUS_DB_DATABASE', 'radius'),
             'username' => env('RADIUS_DB_USERNAME', 'radius'),
             'password' => env('RADIUS_DB_PASSWORD', ''),
-            'charset' => env('RADIUS_DB_CONNECTION', 'pgsql') === 'mysql' ? 'utf8mb4' : 'utf8',
-            'collation' => env('RADIUS_DB_CONNECTION', 'pgsql') === 'mysql' ? 'utf8mb4_unicode_ci' : null,
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
             'strict' => true,
+            'engine' => null,
         ],
 
         'sqlsrv' => [

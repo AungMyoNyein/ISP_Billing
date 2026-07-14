@@ -10,8 +10,11 @@ use Illuminate\Support\Facades\Process;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * PostgreSQL backup & restore using pg_dump / pg_restore.
- * Dumps are stored in storage/app/backups.
+ * MySQL backup & restore using mysqldump / mysql.
+ * Dumps are plain SQL, stored in storage/app/backups.
+ *
+ * The password is passed via MYSQL_PWD rather than -p so it never appears
+ * in the process list.
  */
 class BackupController extends Controller
 {
@@ -27,7 +30,7 @@ class BackupController extends Controller
 
     public function index(): JsonResponse
     {
-        $files = collect(glob($this->backupDir().'/*.dump'))
+        $files = collect(glob($this->backupDir().'/*.sql'))
             ->map(fn (string $path) => [
                 'name' => basename($path),
                 'size_bytes' => filesize($path),
@@ -41,18 +44,21 @@ class BackupController extends Controller
 
     public function store(): JsonResponse
     {
-        $config = config('database.connections.pgsql');
-        $file = $this->backupDir().'/isp_billing_'.now()->format('Ymd_His').'.dump';
+        $config = config('database.connections.'.config('database.default'));
+        $file = $this->backupDir().'/isp_billing_'.now()->format('Ymd_His').'.sql';
 
-        $result = Process::env(['PGPASSWORD' => $config['password']])
+        $result = Process::env(['MYSQL_PWD' => $config['password']])
             ->timeout(300)
             ->run([
-                'pg_dump',
+                'mysqldump',
                 '-h', $config['host'],
-                '-p', (string) $config['port'],
-                '-U', $config['username'],
-                '-F', 'c', // custom format, restorable with pg_restore
-                '-f', $file,
+                '-P', (string) $config['port'],
+                '-u', $config['username'],
+                '--single-transaction',  // consistent InnoDB dump without locking writers out
+                '--add-drop-table',      // so a restore replaces existing tables
+                '--routines',
+                '--triggers',
+                '--result-file='.$file,  // written directly: Process gives us no shell to redirect with
                 $config['database'],
             ]);
 
@@ -81,19 +87,26 @@ class BackupController extends Controller
     {
         $data = $request->validate(['name' => ['required', 'string']]);
         $path = $this->safePath($data['name']);
-        $config = config('database.connections.pgsql');
+        $config = config('database.connections.'.config('database.default'));
 
-        $result = Process::env(['PGPASSWORD' => $config['password']])
+        // The dump is fed on stdin as a stream, so a large backup is never
+        // held in memory. The DROP TABLE statements in it do the "clean".
+        $handle = fopen($path, 'r');
+
+        $result = Process::env(['MYSQL_PWD' => $config['password']])
             ->timeout(600)
+            ->input($handle)
             ->run([
-                'pg_restore',
+                'mysql',
                 '-h', $config['host'],
-                '-p', (string) $config['port'],
-                '-U', $config['username'],
-                '-d', $config['database'],
-                '--clean', '--if-exists',
-                $path,
+                '-P', (string) $config['port'],
+                '-u', $config['username'],
+                $config['database'],
             ]);
+
+        if (is_resource($handle)) {
+            fclose($handle);
+        }
 
         if (! $result->successful()) {
             return response()->json(['message' => 'Restore failed: '.$result->errorOutput()], 500);
@@ -114,7 +127,7 @@ class BackupController extends Controller
 
     private function safePath(string $name): string
     {
-        abort_if(basename($name) !== $name || ! str_ends_with($name, '.dump'), 422, 'Invalid backup name.');
+        abort_if(basename($name) !== $name || ! str_ends_with($name, '.sql'), 422, 'Invalid backup name.');
         $path = $this->backupDir().'/'.$name;
         abort_unless(is_file($path), 404, 'Backup not found.');
 

@@ -19,7 +19,7 @@ class ReportController extends Controller
         $months = min($request->integer('months', 12), 36);
 
         $rows = Payment::query()
-            ->selectRaw("to_char(paid_at, 'YYYY-MM') as month")
+            ->selectRaw("DATE_FORMAT(paid_at, '%Y-%m') as month")
             ->selectRaw('SUM(amount) as total')
             ->selectRaw('COUNT(*) as payments')
             ->where('paid_at', '>=', now()->subMonths($months)->startOfMonth())
@@ -36,7 +36,7 @@ class ReportController extends Controller
         $months = min($request->integer('months', 12), 36);
 
         $rows = Customer::query()
-            ->selectRaw("to_char(created_at, 'YYYY-MM') as month")
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month")
             ->selectRaw('COUNT(*) as customers')
             ->where('created_at', '>=', now()->subMonths($months)->startOfMonth())
             ->groupBy('month')
