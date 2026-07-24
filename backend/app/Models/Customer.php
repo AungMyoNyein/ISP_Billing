@@ -89,11 +89,11 @@ class Customer extends Model
             ->when($filters['search'] ?? null, function (Builder $q, string $search) {
                 $q->where(function (Builder $q) use ($search) {
                     $like = '%'.$search.'%';
-                    $q->where('name', 'ilike', $like)
-                        ->orWhere('username', 'ilike', $like)
-                        ->orWhere('customer_code', 'ilike', $like)
-                        ->orWhere('phone', 'ilike', $like)
-                        ->orWhere('address', 'ilike', $like);
+                    $q->where('name', 'like', $like)
+                        ->orWhere('username', 'like', $like)
+                        ->orWhere('customer_code', 'like', $like)
+                        ->orWhere('phone', 'like', $like)
+                        ->orWhere('address', 'like', $like);
                 });
             })
             ->when($filters['status'] ?? null, fn (Builder $q, string $s) => $q->where('status', $s))

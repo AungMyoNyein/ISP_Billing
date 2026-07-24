@@ -8,9 +8,9 @@ follows at the end.
 
 | Component  | Version  | Notes                                            |
 |------------|----------|--------------------------------------------------|
-| PHP        | 8.2+     | extensions: `pdo_pgsql`, `mbstring`, `xml`, `curl`, `openssl` |
+| PHP        | 8.2+     | extensions: `pdo_mysql`, `mbstring`, `xml`, `curl`, `openssl` |
 | Composer   | 2.x      |                                                  |
-| PostgreSQL | 14+      | server + `pg_dump`/`pg_restore` for backups      |
+| Database   | MySQL 8+ / MariaDB 10.6+ | server + `mysqldump` for backups        |
 | Node.js    | 18.18+   | 20 LTS recommended                               |
 | FreeRADIUS | 3.x      | optional but required for real AAA               |
 | NAS router | any RADIUS-capable BRAS | RADIUS auth/acct + incoming Disconnect (RFC 5176, port 3799) |
@@ -18,8 +18,8 @@ follows at the end.
 On Debian/Ubuntu:
 
 ```bash
-apt install php8.3-cli php8.3-pgsql php8.3-xml php8.3-curl php8.3-mbstring \
-            composer postgresql postgresql-client nodejs npm
+apt install php8.3-cli php8.3-mysql php8.3-xml php8.3-curl php8.3-mbstring \
+            composer mariadb-server mariadb-client nodejs npm
 ```
 
 ## Option A — automated install
@@ -33,8 +33,8 @@ apt install php8.3-cli php8.3-pgsql php8.3-xml php8.3-curl php8.3-mbstring \
 
 The script:
 
-1. verifies PHP/Composer/Node/psql and required PHP extensions;
-2. creates the PostgreSQL role and the `isp_billing` + `radius` databases
+1. verifies PHP/Composer/Node/mysql and required PHP extensions;
+2. creates the MySQL user and the `isp_billing` + `radius` databases
    (idempotent — safe to re-run);
 3. installs backend dependencies, writes `backend/.env` with a generated
    DB password and app key, runs migrations (and seeders unless `--no-seed`);
@@ -55,18 +55,24 @@ Next.js proxies it to the backend (`BACKEND_URL`, default
 CORS setup. Set `API_URL` to a full URL only if browsers should hit
 the backend directly.
 
-If the script cannot reach PostgreSQL as a superuser it falls back to
-`psql -U postgres` over TCP; set `PGSUPER_USER` / `PGSUPER_PASS` if your
-superuser differs.
+Admin access for creating the databases: the script uses the local MySQL/MariaDB
+root socket, falling back to TCP — set `MYSQL_ROOT_USER` / `MYSQL_ROOT_PASS` if
+your root account needs a password or lives on another host.
 
 ## Option B — manual install
 
 ### 1. Databases
 
+MySQL / MariaDB (`DB_CONNECTION=mysql` and `RADIUS_DB_CONNECTION=mysql` in
+`backend/.env`):
+
 ```sql
-CREATE ROLE isp_billing LOGIN PASSWORD 'change-me';
-CREATE DATABASE isp_billing OWNER isp_billing;
-CREATE DATABASE radius OWNER isp_billing;   -- or reuse FreeRADIUS's existing DB
+CREATE USER 'isp_billing'@'localhost' IDENTIFIED BY 'change-me';
+CREATE DATABASE isp_billing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE radius CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;  -- or reuse FreeRADIUS's DB
+GRANT ALL PRIVILEGES ON isp_billing.* TO 'isp_billing'@'localhost';
+GRANT ALL PRIVILEGES ON radius.* TO 'isp_billing'@'localhost';
+FLUSH PRIVILEGES;
 ```
 
 If FreeRADIUS already has a SQL database, point the backend at it
@@ -180,11 +186,11 @@ which also removes the need for CORS).
 - [ ] Change all seeded passwords (or install with `--no-seed`)
 - [ ] `APP_DEBUG=false`, unique `APP_KEY`
 - [ ] TLS on both API and UI
-- [ ] PostgreSQL only reachable from the app host
+- [ ] MySQL/MariaDB only reachable from the app host
 - [ ] NAS routers accept RADIUS CoA/Disconnect only from the RADIUS host, with strong shared secrets
 - [ ] Cron entry installed; verify with `php artisan schedule:list`
 - [ ] Regular backups: **Administration → Backup & Restore** or
-      `pg_dump` from cron; test a restore once
+      `mysqldump` from cron; test a restore once
 
 ## Upgrading
 

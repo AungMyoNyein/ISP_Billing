@@ -10,8 +10,9 @@ use Illuminate\Support\Facades\Process;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * PostgreSQL backup & restore using pg_dump / pg_restore.
- * Dumps are stored in storage/app/backups.
+ * MySQL/MariaDB backup & restore using mysqldump / mysql.
+ * Dumps are SQL files stored in storage/app/backups (kept with a .dump
+ * extension so existing backups and download links keep working).
  */
 class BackupController extends Controller
 {
@@ -41,18 +42,19 @@ class BackupController extends Controller
 
     public function store(): JsonResponse
     {
-        $config = config('database.connections.pgsql');
+        $config = config('database.connections.mysql');
         $file = $this->backupDir().'/isp_billing_'.now()->format('Ymd_His').'.dump';
 
-        $result = Process::env(['PGPASSWORD' => $config['password']])
+        $result = Process::env(['MYSQL_PWD' => $config['password']])
             ->timeout(300)
             ->run([
-                'pg_dump',
+                'mysqldump',
                 '-h', $config['host'],
-                '-p', (string) $config['port'],
-                '-U', $config['username'],
-                '-F', 'c', // custom format, restorable with pg_restore
-                '-f', $file,
+                '-P', (string) $config['port'],
+                '-u', $config['username'],
+                '--single-transaction', // consistent dump without locking
+                '--routines', '--triggers', '--events',
+                '--result-file='.$file,
                 $config['database'],
             ]);
 
@@ -81,18 +83,20 @@ class BackupController extends Controller
     {
         $data = $request->validate(['name' => ['required', 'string']]);
         $path = $this->safePath($data['name']);
-        $config = config('database.connections.pgsql');
+        $config = config('database.connections.mysql');
 
-        $result = Process::env(['PGPASSWORD' => $config['password']])
+        // mysqldump output is a SQL script; feed it back through the mysql
+        // client on stdin. --result-file dumps are plain SQL, so this both
+        // drops/recreates and repopulates the schema.
+        $result = Process::env(['MYSQL_PWD' => $config['password']])
             ->timeout(600)
+            ->input(file_get_contents($path))
             ->run([
-                'pg_restore',
+                'mysql',
                 '-h', $config['host'],
-                '-p', (string) $config['port'],
-                '-U', $config['username'],
-                '-d', $config['database'],
-                '--clean', '--if-exists',
-                $path,
+                '-P', (string) $config['port'],
+                '-u', $config['username'],
+                $config['database'],
             ]);
 
         if (! $result->successful()) {

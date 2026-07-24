@@ -45,11 +45,11 @@ class Payment extends Model
             ->when($filters['search'] ?? null, function (Builder $q, string $search) {
                 $like = '%'.$search.'%';
                 $q->where(function (Builder $q) use ($like) {
-                    $q->where('payment_number', 'ilike', $like)
-                        ->orWhere('reference', 'ilike', $like)
+                    $q->where('payment_number', 'like', $like)
+                        ->orWhere('reference', 'like', $like)
                         ->orWhereHas('customer', fn (Builder $q) => $q
-                            ->where('name', 'ilike', $like)
-                            ->orWhere('username', 'ilike', $like));
+                            ->where('name', 'like', $like)
+                            ->orWhere('username', 'like', $like));
                 });
             })
             ->when($filters['method'] ?? null, fn (Builder $q, string $m) => $q->where('method', $m))

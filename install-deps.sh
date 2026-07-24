@@ -3,15 +3,15 @@
 # Core system dependencies installer for the ISP Billing System.
 #
 # Installs everything ./install.sh expects to find on the machine:
-#   - PHP 8.3 (CLI + FPM) with pgsql, mbstring, xml, curl, zip, intl, bcmath
+#   - PHP 8.3 (CLI + FPM) with mysql, mbstring, xml, curl, zip, intl, bcmath
 #   - Composer 2
-#   - PostgreSQL server + client (started and enabled)
+#   - MySQL/MariaDB server + client (started and enabled)
 #   - Node.js 20 LTS + npm (via NodeSource if the distro version is too old)
 #   - git, curl, unzip, cron
 #
 # Usage (run as root / with sudo):
 #   sudo ./install-deps.sh                    # everything above
-#   sudo ./install-deps.sh --with-freeradius  # also FreeRADIUS 3 + SQL module
+#   sudo ./install-deps.sh --with-freeradius  # also FreeRADIUS 3 + MySQL module
 #   sudo ./install-deps.sh --node 22          # pick the Node.js major version
 #
 # Supported: Debian 12+, Ubuntu 22.04+ (apt). On RHEL-family distros the
@@ -46,23 +46,23 @@ else
 fi
 
 case "${ID:-}:${ID_LIKE:-}" in
-  debian:*|ubuntu:*|*:*debian*|*:*ubuntu*) PKG=apt ;;
+  debian:*|ubuntu:*|*:*debian*|*:*ubuntu*) : ;;
   rhel:*|centos:*|rocky:*|almalinux:*|fedora:*|*:*rhel*|*:*fedora*)
     cat <<'EOF'
 This script automates Debian/Ubuntu. On RHEL-family systems install:
 
-  dnf install -y php php-cli php-fpm php-pgsql php-mbstring php-xml \
+  dnf install -y php php-cli php-fpm php-mysqlnd php-mbstring php-xml \
                  php-curl php-zip php-intl php-bcmath php-process \
-                 postgresql-server postgresql composer nodejs npm \
+                 mariadb-server mariadb composer nodejs npm \
                  git curl unzip cronie
-  postgresql-setup --initdb && systemctl enable --now postgresql crond
-  # FreeRADIUS (optional): dnf install -y freeradius freeradius-postgresql
+  systemctl enable --now mariadb crond
+  # FreeRADIUS (optional): dnf install -y freeradius freeradius-mysql
 
 Then run ./install.sh as usual.
 EOF
     exit 1
     ;;
-  *) die "Unsupported distribution: ${PRETTY_NAME:-unknown}. Install PHP 8.2+, Composer, PostgreSQL and Node 18.18+ manually, then run ./install.sh." ;;
+  *) die "Unsupported distribution: ${PRETTY_NAME:-unknown}. Install PHP 8.2+, Composer, MySQL/MariaDB and Node 18.18+ manually, then run ./install.sh." ;;
 esac
 
 export DEBIAN_FRONTEND=noninteractive
@@ -89,7 +89,7 @@ if ! apt-cache show php8.3-cli >/dev/null 2>&1; then
   fi
 fi
 apt-get install -y -qq \
-  php8.3-cli php8.3-fpm php8.3-pgsql php8.3-mbstring php8.3-xml \
+  php8.3-cli php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-xml \
   php8.3-curl php8.3-zip php8.3-intl php8.3-bcmath >/dev/null
 ok "PHP $(php -r 'echo PHP_VERSION;') installed"
 
@@ -107,15 +107,15 @@ else
   ok "Composer $(composer --version 2>/dev/null | awk '{print $3}') installed"
 fi
 
-# ---------------------------------------------------------------- PostgreSQL
-info "Installing PostgreSQL…"
-apt-get install -y -qq postgresql postgresql-client >/dev/null
+# ---------------------------------------------------------------- MariaDB
+info "Installing MariaDB (MySQL)…"
+apt-get install -y -qq mariadb-server mariadb-client >/dev/null
 if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
-  systemctl enable --now postgresql >/dev/null 2>&1 || service postgresql start
+  systemctl enable --now mariadb >/dev/null 2>&1 || service mariadb start
 else
-  service postgresql start 2>/dev/null || true
+  service mariadb start 2>/dev/null || service mysql start 2>/dev/null || true
 fi
-ok "PostgreSQL $(psql --version | awk '{print $3}') installed and running"
+ok "MariaDB $(mariadb --version 2>/dev/null | awk '{print $3}' | tr -d ',' || echo installed) installed and running"
 
 # ---------------------------------------------------------------- Node.js
 node_ok() {
@@ -152,8 +152,8 @@ fi
 
 # ---------------------------------------------------------------- FreeRADIUS
 if [ "$WITH_FREERADIUS" = 1 ]; then
-  info "Installing FreeRADIUS + PostgreSQL SQL module…"
-  apt-get install -y -qq freeradius freeradius-postgresql freeradius-utils >/dev/null
+  info "Installing FreeRADIUS + MySQL SQL module…"
+  apt-get install -y -qq freeradius freeradius-mysql freeradius-utils >/dev/null
   ok "FreeRADIUS installed (./install.sh will auto-configure the sql module)"
 fi
 
@@ -163,9 +163,9 @@ cat <<EOF
 ──────────────────────────────────────────────────────────────
  Core dependencies installed:
 
-   PHP        $(php -r 'echo PHP_VERSION;')   (cli, fpm, pgsql, mbstring, xml, curl, zip, intl, bcmath)
+   PHP        $(php -r 'echo PHP_VERSION;')   (cli, fpm, mysql, mbstring, xml, curl, zip, intl, bcmath)
    Composer   $(composer --version 2>/dev/null | awk '{print $3}')
-   PostgreSQL $(psql --version | awk '{print $3}')   (service running)
+   MariaDB    $(mariadb --version 2>/dev/null | awk '{print $3}' | tr -d ',' || echo installed)   (service running)
    Node.js    $(node -v) / npm $(npm -v)
 $( [ "$WITH_FREERADIUS" = 1 ] && echo "   FreeRADIUS $(freeradius -v 2>/dev/null | sed -n 's/.*Version \([0-9.]*\).*/\1/p' | head -1)" )
 

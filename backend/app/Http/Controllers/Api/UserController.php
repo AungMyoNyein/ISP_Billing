@@ -16,7 +16,7 @@ class UserController extends Controller
         $users = User::with('role:id,name')
             ->when($request->filled('search'), function ($q) use ($request) {
                 $like = '%'.$request->string('search').'%';
-                $q->where(fn ($q) => $q->where('name', 'ilike', $like)->orWhere('email', 'ilike', $like));
+                $q->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like));
             })
             ->orderBy('name')
             ->paginate($request->integer('per_page', 50));

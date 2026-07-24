@@ -4,8 +4,7 @@
 
 The billing system manages the standard FreeRADIUS SQL schema directly —
 no custom modules needed. Point both FreeRADIUS and the backend at the
-same database (`RADIUS_DB_*` in `backend/.env`; both PostgreSQL and
-MySQL schemas are supported).
+same MySQL/MariaDB database (`RADIUS_DB_*` in `backend/.env`).
 
 ### What the system writes
 
@@ -42,10 +41,10 @@ online-user count.
 
    ```
    sql {
-       dialect = "postgresql"          # or "mysql"
+       dialect = "mysql"
        driver = "rlm_sql_${dialect}"
        server = "127.0.0.1"
-       port = 5432
+       port = 3306
        login = "isp_billing"
        password = "..."
        radius_db = "radius"

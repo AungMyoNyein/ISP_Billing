@@ -217,9 +217,9 @@ class RadiusService
             ->when($search, function ($q, $search) {
                 $q->where(function ($q) use ($search) {
                     $like = '%'.$search.'%';
-                    $q->where('username', 'ilike', $like)
-                        ->orWhere('framedipaddress', 'ilike', $like)
-                        ->orWhere('callingstationid', 'ilike', $like);
+                    $q->where('username', 'like', $like)
+                        ->orWhere('framedipaddress', 'like', $like)
+                        ->orWhere('callingstationid', 'like', $like);
                 });
             })
             ->orderByDesc('acctstarttime')

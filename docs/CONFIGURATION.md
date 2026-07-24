@@ -12,12 +12,12 @@
 | `APP_URL`      | `http://localhost:8000` | Public URL of the API                |
 | `FRONTEND_URL` | `http://localhost:3000` | Frontend origin allowed by CORS      |
 
-### Main database (PostgreSQL)
+### Main database (MySQL/MariaDB)
 
 | Variable      | Default       | Description            |
 |---------------|---------------|------------------------|
-| `DB_CONNECTION` | `pgsql`     | Keep `pgsql`           |
-| `DB_HOST` / `DB_PORT` | `127.0.0.1` / `5432` | |
+| `DB_CONNECTION` | `mysql`     | Keep `mysql`           |
+| `DB_HOST` / `DB_PORT` | `127.0.0.1` / `3306` | |
 | `DB_DATABASE` | `isp_billing` | Main billing database  |
 | `DB_USERNAME` / `DB_PASSWORD` | `isp_billing` / — | |
 
@@ -28,8 +28,8 @@ separate connection. It can share the database FreeRADIUS already uses.
 
 | Variable               | Default       | Description                       |
 |------------------------|---------------|-----------------------------------|
-| `RADIUS_DB_CONNECTION` | `pgsql`       | `pgsql` or `mysql`, matching your FreeRADIUS schema |
-| `RADIUS_DB_HOST` / `RADIUS_DB_PORT` | `127.0.0.1` / `5432` |      |
+| `RADIUS_DB_CONNECTION` | `mysql`       | MySQL/MariaDB, matching your FreeRADIUS schema |
+| `RADIUS_DB_HOST` / `RADIUS_DB_PORT` | `127.0.0.1` / `3306` |      |
 | `RADIUS_DB_DATABASE`   | `radius`      |                                   |
 | `RADIUS_DB_USERNAME` / `RADIUS_DB_PASSWORD` | `radius` / — |        |
 | `RADIUS_RELOAD_COMMAND` | `sudo -n systemctl restart freeradius` | Run after a NAS/router change so FreeRADIUS re-reads its SQL clients (it only loads them at startup, so a **full restart** is required — a reload/HUP does not re-read the `nas` table). The web user needs permission to run it (`install.sh` adds a sudoers rule). Set **blank to disable**, e.g. when FreeRADIUS runs on another host. |

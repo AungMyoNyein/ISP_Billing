@@ -100,23 +100,20 @@ return [
         ],
 
         /*
-        | FreeRADIUS database (radcheck, radreply, radusergroup, radacct).
-        | Supports both MySQL and PostgreSQL FreeRADIUS schemas via
-        | RADIUS_DB_CONNECTION=mysql|pgsql.
+        | FreeRADIUS database (radcheck, radreply, radusergroup, radacct)
+        | on the MySQL/MariaDB FreeRADIUS schema.
         */
         'radius' => [
-            'driver' => env('RADIUS_DB_CONNECTION', 'pgsql'),
+            'driver' => env('RADIUS_DB_CONNECTION', 'mysql'),
             'host' => env('RADIUS_DB_HOST', '127.0.0.1'),
-            'port' => env('RADIUS_DB_PORT', '5432'),
+            'port' => env('RADIUS_DB_PORT', '3306'),
             'database' => env('RADIUS_DB_DATABASE', 'radius'),
             'username' => env('RADIUS_DB_USERNAME', 'radius'),
             'password' => env('RADIUS_DB_PASSWORD', ''),
-            'charset' => env('RADIUS_DB_CONNECTION', 'pgsql') === 'mysql' ? 'utf8mb4' : 'utf8',
-            'collation' => env('RADIUS_DB_CONNECTION', 'pgsql') === 'mysql' ? 'utf8mb4_unicode_ci' : null,
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'prefix_indexes' => true,
-            'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
             'strict' => true,
         ],
 

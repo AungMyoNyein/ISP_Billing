@@ -20,7 +20,7 @@ class ServicePlanController extends Controller
     public function index(Request $request): JsonResponse
     {
         $plans = ServicePlan::withCount('customers')
-            ->when($request->filled('search'), fn ($q) => $q->where('name', 'ilike', '%'.$request->string('search').'%'))
+            ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%'))
             ->when($request->filled('active'), fn ($q) => $q->where('is_active', $request->boolean('active')))
             ->orderBy('price')
             ->paginate($request->integer('per_page', 50));
