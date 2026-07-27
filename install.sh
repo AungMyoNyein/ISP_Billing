@@ -12,6 +12,7 @@
 #   ./install.sh --frontend-only # frontend only
 #   ./install.sh --no-freeradius # skip FreeRADIUS sql module auto-config
 #   ./install.sh --no-service    # skip isp-billing-ui systemd unit setup
+#   ./install.sh --no-logrotate  # skip /etc/logrotate.d/isp-billing setup
 #
 # If a local FreeRADIUS 3 install is detected (install-deps.sh
 # --with-freeradius), its sql module is pointed at the radius database
@@ -33,6 +34,7 @@ DO_BACKEND=1
 DO_FRONTEND=1
 DO_RADIUS_CONF=1
 DO_SERVICE=1
+DO_LOGROTATE=1
 
 for arg in "$@"; do
   case "$arg" in
@@ -41,7 +43,8 @@ for arg in "$@"; do
     --frontend-only) DO_BACKEND=0 ;;
     --no-freeradius) DO_RADIUS_CONF=0 ;;
     --no-service) DO_SERVICE=0 ;;
-    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
+    --no-logrotate) DO_LOGROTATE=0 ;;
+    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
     *) echo "Unknown option: $arg (see --help)"; exit 1 ;;
   esac
 done
@@ -329,6 +332,104 @@ EOF
   ok "FreeRADIUS sql module configured and service restarted"
 }
 
+# -------------------------------------------------------------- logrotate
+# Rotate the logs this stack produces.
+#
+# The Laravel log is the one that actually needs it: LOG_STACK=single means
+# storage/logs/laravel.log grows without bound, and it is where FreeRADIUS
+# reload failures and other RADIUS provisioning warnings are recorded.
+#
+# radius.log usually needs nothing — the distro FreeRADIUS package ships
+# /etc/logrotate.d/freeradius. logrotate aborts its entire run when two
+# configs claim the same file ("duplicate log entry"), so radius.log is only
+# added here when nothing else already claims it (source builds, stripped
+# images). copytruncate throughout: both writers hold their file open, and
+# a plain rename would leave them logging into the rotated inode.
+configure_log_rotation() {
+  if ! command -v logrotate >/dev/null 2>&1 || [ ! -d /etc/logrotate.d ]; then
+    info "logrotate not available — skipping log rotation setup"
+    return 0
+  fi
+  if ! root_run true 2>/dev/null; then
+    warn "No root access — skipping log rotation setup (see docs/INSTALL.md)"
+    return 0
+  fi
+
+  local conf=/etc/logrotate.d/isp-billing tmp app_logs rlog f owner group
+  tmp="$(mktemp)"
+  printf '# Installed by ISP Billing install.sh — safe to edit.\n\n' > "$tmp"
+
+  app_logs="$ROOT/backend/storage/logs"
+  if [ -d "$app_logs" ]; then
+    owner="$(stat -c '%U' "$app_logs" 2>/dev/null || echo root)"
+    group="$(stat -c '%G' "$app_logs" 2>/dev/null || echo root)"
+    cat >> "$tmp" <<EOF
+$app_logs/*.log {
+    daily
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su $owner $group
+}
+
+EOF
+  fi
+
+  rlog=""
+  for f in /var/log/freeradius/radius.log /var/log/radius/radius.log; do
+    [ -f "$f" ] && { rlog="$f"; break; }
+  done
+  if [ -n "$rlog" ]; then
+    if grep -rlF "$rlog" /etc/logrotate.conf /etc/logrotate.d 2>/dev/null \
+         | grep -qv "^$conf\$"; then
+      info "$rlog already rotated by the FreeRADIUS package — left alone"
+    else
+      owner="$(stat -c '%U' "$(dirname "$rlog")" 2>/dev/null || echo root)"
+      group="$(stat -c '%G' "$(dirname "$rlog")" 2>/dev/null || echo root)"
+      cat >> "$tmp" <<EOF
+$rlog {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su $owner $group
+}
+
+EOF
+    fi
+  fi
+
+  # Nothing to rotate (frontend-only install, radius.log already covered).
+  if ! grep -q '^/' "$tmp"; then
+    rm -f "$tmp"
+    return 0
+  fi
+
+  if ! root_run install -m 644 -o root -g root "$tmp" "$conf" 2>/dev/null; then
+    rm -f "$tmp"
+    warn "Could not write $conf — rotate the logs yourself (docs/INSTALL.md)"
+    return 0
+  fi
+  rm -f "$tmp"
+
+  # Parse the whole config, not just ours: a duplicate entry only shows up
+  # against the other drop-ins, and it would break rotation for every service
+  # on the box, so back our file out rather than leave that behind.
+  if ! root_run logrotate -d /etc/logrotate.conf >/dev/null 2>&1; then
+    root_run rm -f "$conf" || true
+    warn "logrotate rejected $conf — removed it, rotate the logs yourself"
+    return 0
+  fi
+
+  ok "Log rotation installed ($conf)"
+}
+
 # ---------------------------------------------------------------- frontend
 install_frontend() {
   info "Installing frontend (Next.js)…"
@@ -420,6 +521,7 @@ install_ui_service() {
 [ "$DO_BACKEND" = 1 ] && { create_databases; install_backend; }
 [ "$DO_BACKEND" = 1 ] && [ "$DO_RADIUS_CONF" = 1 ] && configure_freeradius
 [ "$DO_BACKEND" = 1 ] && [ "$DO_SERVICE" = 1 ] && install_api_service
+[ "$DO_LOGROTATE" = 1 ] && configure_log_rotation
 [ "$DO_FRONTEND" = 1 ] && install_frontend
 [ "$DO_FRONTEND" = 1 ] && [ "$DO_SERVICE" = 1 ] && install_ui_service
 

@@ -29,6 +29,7 @@ apt install php8.3-cli php8.3-pgsql php8.3-xml php8.3-curl php8.3-mbstring \
 ./install.sh --no-seed       # production: no demo customers
 ./install.sh --backend-only  # API + databases only
 ./install.sh --frontend-only # UI only
+./install.sh --no-logrotate  # skip /etc/logrotate.d/isp-billing
 ```
 
 The script:
@@ -40,7 +41,30 @@ The script:
    DB password and app key, runs migrations (and seeders unless `--no-seed`);
 4. installs frontend dependencies (including a workaround for npm
    skipping the Tailwind native binary on older npm versions), writes
-   `frontend/.env.local`, and builds the production bundle.
+   `frontend/.env.local`, and builds the production bundle;
+5. installs `/etc/logrotate.d/isp-billing` (see below).
+
+### Log rotation
+
+`backend/storage/logs/laravel.log` is a single file that grows without
+bound — it holds FreeRADIUS reload failures and other provisioning
+warnings, so it matters. The installer writes
+`/etc/logrotate.d/isp-billing` to rotate it daily, keeping 14 compressed
+generations, with `copytruncate` (the app holds the file open).
+
+`radius.log` is normally left alone: the distro FreeRADIUS package already
+ships `/etc/logrotate.d/freeradius`, and logrotate aborts its **entire**
+run if two configs claim the same file. The installer adds a stanza for it
+only when nothing else does — e.g. a source-built FreeRADIUS. After
+writing the file it parses the full logrotate config and backs its own
+file out if anything is rejected, so a bad drop-in can't break rotation
+for the rest of the box.
+
+Skip the whole step with `--no-logrotate`. Check what would happen with:
+
+```bash
+sudo logrotate -d /etc/logrotate.conf     # dry run, changes nothing
+```
 
 Override defaults via env vars, e.g.:
 
