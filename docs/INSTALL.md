@@ -125,15 +125,32 @@ backend runs elsewhere).
 
 ### 4. Scheduler (required)
 
-The billing rules (suspend overdue, expire past-due) run via the Laravel
-scheduler. Add to crontab on the backend host:
+The billing rules (suspend overdue, expire past-due) and the SmartOLT ONU
+import run via the Laravel scheduler. Add to crontab on the backend host:
 
 ```cron
-* * * * * cd /path/to/backend && php artisan schedule:run >> /dev/null 2>&1
+* * * * * /usr/bin/php /path/to/backend/artisan schedule:run >/dev/null 2>>/path/to/backend/storage/logs/scheduler.log
+```
+
+Two details worth keeping. Give `artisan` an **absolute path** rather than
+`cd`-ing first — cron runs from the user's home, and a wrong working
+directory fails with `Could not open input file: artisan` every minute.
+And send stderr to a log instead of `/dev/null`: the job is silent when
+healthy, so discarding its errors is how a scheduler stays broken for
+weeks unnoticed. `storage/logs/` is already covered by the logrotate
+config the installer writes.
+
+Verify it is actually running:
+
+```bash
+journalctl -u cron --since "5 min ago" | grep schedule:run   # cron fired it
+cat /path/to/backend/storage/logs/scheduler.log              # empty = healthy
+php artisan schedule:list                                    # what runs when
 ```
 
 Without this, customers are only suspended when an operator presses
-**Billing → Run enforcement** (`POST /api/billing/enforce`).
+**Billing → Run enforcement** (`POST /api/billing/enforce`), and new
+SmartOLT ONUs are only imported by running `php artisan smartolt:sync`.
 
 ## Production deployment
 

@@ -535,7 +535,7 @@ cat <<EOF
    cd frontend && npm start                  # UI   → $FRONTEND_URL
 
  Required cron entry (billing enforcement):
-   * * * * * cd $ROOT/backend && php artisan schedule:run >> /dev/null 2>&1
+   * * * * * $(command -v php) $ROOT/backend/artisan schedule:run >/dev/null 2>>$ROOT/backend/storage/logs/scheduler.log
 
  Default login (if seeded): admin@isp.local / admin12345
  Production deployment guide: docs/INSTALL.md
