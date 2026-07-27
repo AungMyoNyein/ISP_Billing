@@ -61,6 +61,40 @@ class SmartOltService
         return $response->successful() ? $response->json() : null;
     }
 
+    /**
+     * Every ONU SmartOLT knows about, for the customer importer.
+     *
+     * Verified against a live account: returns {onus: [...], status,
+     * response_code}, and each ONU carries its WAN PPPoE credentials inline
+     * as "username"/"password" — there is no separate WAN-config endpoint
+     * (/onu/get_onu_wan_config answers 405).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listOnus(): array
+    {
+        if (! $this->enabled()) {
+            return [];
+        }
+
+        $response = $this->http()->timeout(60)->get('/onu/get_all_onus_details');
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $body = $response->json();
+
+        // SmartOLT wraps collections under a key that varies by endpoint;
+        // accept the bare list too.
+        foreach (['onus', 'data', 'response'] as $key) {
+            if (isset($body[$key]) && is_array($body[$key])) {
+                return array_values($body[$key]);
+            }
+        }
+
+        return is_array($body) && array_is_list($body) ? $body : [];
+    }
+
     public function enableOnu(string $onuSn): bool
     {
         return $this->enabled()

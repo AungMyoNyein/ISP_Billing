@@ -160,9 +160,12 @@ function Overview({ customer }: { customer: Customer }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <Card className="p-5 lg:col-span-2">
-        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+    // Notes sits underneath rather than beside the details: as a grid column
+    // it stretched to the full height of the 14-row card next to it, which is
+    // a lot of empty box for one line of text.
+    <div className="space-y-4">
+      <Card className="p-5">
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map(([label, value]) => (
             <div key={label} className="flex justify-between gap-4 border-b border-slate-100 pb-2 text-sm">
               <dt className="text-slate-500">{label}</dt>
@@ -171,9 +174,9 @@ function Overview({ customer }: { customer: Customer }) {
           ))}
         </dl>
       </Card>
-      <Card className="p-5">
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Notes</h3>
-        <p className="whitespace-pre-wrap text-sm text-slate-600">{customer.notes || "No notes."}</p>
+      <Card className="px-5 py-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</h3>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{customer.notes || "No notes."}</p>
       </Card>
     </div>
   );
