@@ -125,6 +125,18 @@ CoA port) so the customer is offline immediately — accounting history
 is preserved. Reconnection removes both rows and re-provisions plan
 attributes.
 
+**Rejects are sent immediately.** FreeRADIUS ships with
+`reject_delay = 1` in `radiusd.conf`, holding every Access-Reject for a
+second to slow brute-force attempts. MikroTik's RADIUS timeout defaults
+to **300 ms**, so a suspended customer's reject arrives long after the
+NAS gave up — the router logs a *RADIUS timeout* instead of an
+authentication failure, which looks identical to an unreachable server.
+`install.sh` therefore sets `reject_delay = 0` (keeping the distro file
+as `radiusd.conf.dist`). Clients are limited to the billing-managed
+`nas` table, so the rate-limit protects little. Also raise the NAS side
+— `/radius set [find] timeout=3s` — since 300 ms is too tight for any
+SQL-backed RADIUS once the `radcheck` query is under load.
+
 ## NAS routers (MikroTik or any RADIUS-capable BRAS)
 
 All communication with the router goes through RADIUS — there is no

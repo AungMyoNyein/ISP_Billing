@@ -256,6 +256,18 @@ EOF
     '/^(authorize|accounting|session) \{/,/^\}/ s/^#[[:space:]]*sql[[:space:]]*$/\tsql/' \
     "$raddb/sites-available/default"
 
+  # Send Access-Reject immediately. The stock "reject_delay = 1" holds every
+  # reject for a second to slow brute-force attempts, but MikroTik's RADIUS
+  # timeout defaults to 300ms — so a suspended customer's reject lands after
+  # the NAS gave up, and the router reports a "RADIUS timeout" instead of an
+  # authentication failure. The rate-limit buys little here anyway: clients
+  # are restricted to the billing-managed "nas" table, not the open internet.
+  [ -f "$raddb/radiusd.conf.dist" ] \
+    || as_root cp "$raddb/radiusd.conf" "$raddb/radiusd.conf.dist"
+  as_root sed -i -E \
+    's/^([[:space:]]*)reject_delay[[:space:]]*=[[:space:]]*[0-9.]+[[:space:]]*$/\1reject_delay = 0/' \
+    "$raddb/radiusd.conf"
+
   local bin="" b
   for b in /usr/sbin/radiusd /usr/sbin/freeradius; do
     [ -x "$b" ] && { bin=$b; break; }
