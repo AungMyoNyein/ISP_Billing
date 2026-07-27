@@ -44,7 +44,7 @@ List endpoints paginate Laravel-style
 | `GET /customers/{id}` | includes decrypted RADIUS password and live `online` flag |
 | `PUT /customers/{id}` | re-provisions RADIUS; manual status changes sync RADIUS access |
 | `DELETE /customers/{id}` | soft delete + RADIUS deprovision |
-| `GET /customers/{id}/usage?days=30` | `{ daily: [{date, download_bytes, upload_bytes, sessions}], sessions: [...], online }` from radacct |
+| `GET /customers/{id}/usage?days=30` | `{ daily: [{date, download_bytes, upload_bytes, sessions}], sessions: [...], auth_log: [...], online }` from radacct + radpostauth |
 | `GET /customers/{id}/onu` | SmartOLT ONU status + optical signal |
 | `POST /customers/{id}/suspend` | suspend + RADIUS reject + kick PPPoE session |
 | `POST /customers/{id}/reconnect` | re-activate + re-enable RADIUS |
@@ -79,6 +79,7 @@ Delete fails with 422 while customers are assigned.
 | `GET|POST /routers`, `GET|PUT|DELETE /routers/{id}` | `nas_ip`+`radius_secret` sync to the FreeRADIUS `nas` table; `coa_port` for disconnects |
 | `POST /routers/{id}/disconnect-user` | `{ username }` — kick a PPPoE session via RADIUS Disconnect-Request |
 | `GET /sessions/online?search=` | live sessions from radacct, decorated with billing customer info |
+| `GET /sessions/auth-log?search=&reply=&from=&to=` | paginated radpostauth log; `reply` is `Access-Accept`/`Access-Reject`. The submitted credential (`pass`) is never returned |
 | `GET /status` | status page payload (NAS routers from radacct, FreeRADIUS, databases, SmartOLT) |
 
 ## Reports — `reports.view`

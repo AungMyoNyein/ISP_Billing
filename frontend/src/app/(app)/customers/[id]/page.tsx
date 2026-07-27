@@ -15,7 +15,8 @@ interface UsageSession {
   acctsessiontime: number | null; acctinputoctets: number | null; acctoutputoctets: number | null;
   framedipaddress: string; callingstationid: string; nasipaddress: string;
 }
-interface Usage { daily: UsageDay[]; sessions: UsageSession[]; online: boolean }
+interface UsageAuthAttempt { id: number; reply: string; authdate: string | null }
+interface Usage { daily: UsageDay[]; sessions: UsageSession[]; auth_log: UsageAuthAttempt[]; online: boolean }
 
 const TABS = ["Overview", "Bandwidth Usage", "Invoices"] as const;
 
@@ -243,7 +244,37 @@ function UsageTab({ usage }: { usage: Usage | null }) {
           ))}
         </Table>
       </Card>
+
+      <Card>
+        <h3 className="px-5 pt-4 text-sm font-semibold text-slate-700">
+          Recent authentication attempts
+          <span className="ml-2 font-normal text-slate-400">rejects never reach the session list above</span>
+        </h3>
+        <Table headers={["When", "Result"]} empty={usage.auth_log.length === 0}>
+          {usage.auth_log.map((a) => (
+            <tr key={a.id} className="hover:bg-slate-50">
+              <td className="px-4 py-2.5">{formatDateTime(a.authdate)}</td>
+              <td className="px-4 py-2.5">
+                <AuthReply reply={a.reply} />
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </Card>
     </div>
+  );
+}
+
+function AuthReply({ reply }: { reply: string }) {
+  const accepted = reply === "Access-Accept";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        accepted ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+      }`}
+    >
+      {reply}
+    </span>
   );
 }
 

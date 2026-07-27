@@ -12,13 +12,15 @@ MySQL schemas are supported).
 | Table          | Managed rows                                                       |
 |----------------|--------------------------------------------------------------------|
 | `radcheck`     | `Cleartext-Password :=` per customer; `Auth-Type := Reject` while suspended/expired |
-| `radreply`     | `Mikrotik-Rate-Limit`, `Session-Timeout`, `Idle-Timeout` from the service plan |
+| `radreply`     | the customer's static `Framed-IP-Address`, when set                 |
+| `radgroupreply`| per plan: `Mikrotik-Rate-Limit`, `Framed-Pool`, `Session-Timeout`, `Idle-Timeout`, `Acct-Interim-Interval`, plus `Service-Type`/`Framed-Protocol` |
+| `radgroupcheck`| per plan: `Simultaneous-Use`                                        |
 | `radusergroup` | the plan's `radius_group` + a `suspended` marker group              |
 | `nas`          | one row per router from the Network module (`nas_ip`, `radius_secret`) |
 
-`radacct` is read-only for the system: online sessions (rows without
-`acctstoptime`), per-customer daily bandwidth, and the dashboard's
-online-user count.
+`radacct` and `radpostauth` are read-only for the system: online sessions
+(rows without `acctstoptime`), per-customer daily bandwidth, the dashboard's
+online-user count, and the Authentication Log (Network → Authentication Log).
 
 ### FreeRADIUS configuration
 
@@ -80,6 +82,26 @@ FreeRADIUS silently drops as an *unknown client* — the NAS reports a
   host (then restart it there yourself, or use FreeRADIUS dynamic clients).
 - The reload is best-effort: a failure logs a warning and the Routers page
   shows an amber banner — the router still saves.
+
+### NAS type and `Simultaneous-Use`
+
+Routers are written to `nas` with `nastype = mikrotik`
+(`RadiusService::NAS_TYPE`). The type only matters when a plan sets
+**Simultaneous-Use**: FreeRADIUS then calls `checkrad` to ask whether an
+existing `radacct` session is really still live before rejecting the new
+login. `mikrotik` selects checkrad's `mikrotik_telnet` probe.
+
+That probe telnets into the router, so it needs:
+
+- telnet enabled on the MikroTik (Winbox → IP → Services), and
+- the router's credentials in `/etc/freeradius/3.0/naspasswd`, one line per
+  NAS: `<nas-ip> <user> <password>`.
+
+Without those, the probe times out (~seconds per check) and stale sessions
+are treated as live, so a customer who crashed offline can't reconnect until
+the accounting row is closed. If you don't want session verification, set
+those plans' Simultaneous-Use to blank, or change `NAS_TYPE` to `other` —
+with `other`, checkrad is skipped and the `radacct` row is trusted as-is.
 
 ### Firewall / network (UDP 1812 + 1813)
 

@@ -23,11 +23,12 @@ const nav = [
     label: "Network", icon: "🌐", children: [
       { label: "Routers", href: "/network/routers" },
       { label: "Online Sessions", href: "/network/sessions" },
+      { label: "Authentication Log", href: "/network/auth-log" },
     ],
   },
-  { label: "Reports", href: "/reports", icon: "📈" },
   {
     label: "Administration", icon: "⚙️", children: [
+      { label: "Reports", href: "/reports" },
       { label: "Users", href: "/admin/users" },
       { label: "Roles & Permissions", href: "/admin/roles" },
       { label: "System Settings", href: "/admin/settings" },

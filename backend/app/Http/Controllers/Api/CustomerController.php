@@ -111,6 +111,7 @@ class CustomerController extends Controller
         return response()->json([
             'daily' => $this->radius->dailyUsage($customer->username, $days),
             'sessions' => $this->radius->recentSessions($customer->username),
+            'auth_log' => $this->radius->recentAuthAttempts($customer->username),
             'online' => $this->radius->isOnline($customer->username),
         ]);
     }

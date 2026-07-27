@@ -141,6 +141,21 @@ export interface OnlineSession {
   } | null;
 }
 
+export interface AuthAttempt {
+  id: number;
+  username: string;
+  reply: string;
+  accepted: boolean;
+  authenticated_at: string | null;
+  customer: {
+    id: number;
+    name: string;
+    customer_code: string;
+    status: CustomerStatus;
+    plan: string | null;
+  } | null;
+}
+
 export interface AuditLog {
   id: number;
   action: string;

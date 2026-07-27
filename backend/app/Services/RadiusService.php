@@ -8,10 +8,12 @@ use App\Models\Radius\RadAcct;
 use App\Models\Radius\RadCheck;
 use App\Models\Radius\RadGroupCheck;
 use App\Models\Radius\RadGroupReply;
+use App\Models\Radius\RadPostAuth;
 use App\Models\Radius\RadReply;
 use App\Models\Radius\RadUserGroup;
 use App\Models\Router;
 use App\Models\ServicePlan;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,6 +29,16 @@ use Illuminate\Support\Facades\Process;
 class RadiusService
 {
     public const SUSPENDED_GROUP = 'suspended';
+
+    /**
+     * nastype written to the nas table for routers we manage. FreeRADIUS
+     * passes it to checkrad when a Simultaneous-Use check needs to verify
+     * whether a radacct session is still live; "mikrotik" selects checkrad's
+     * mikrotik_telnet probe, which needs the router reachable over telnet
+     * with credentials in /etc/freeradius/3.0/naspasswd. Without that file
+     * the probe times out instead of failing fast — see docs/INTEGRATIONS.md.
+     */
+    public const NAS_TYPE = 'mikrotik';
 
     /** Reply attributes owned by the plan group / provision(); anything else is left alone. */
     private const MANAGED_REPLY_ATTRIBUTES = [
@@ -273,32 +285,116 @@ class RadiusService
     }
 
     /**
+     * Authentication log from radpostauth — one row per Access-Accept or
+     * Access-Reject, newest first. This is the only record of *failed*
+     * logins: a rejected user never reaches radacct.
+     *
+     * @param  array{search?: ?string, reply?: ?string, from?: ?string, to?: ?string}  $filters
+     * @return LengthAwarePaginator<int, RadPostAuth>
+     */
+    public function authLog(array $filters = [], int $perPage = 50): LengthAwarePaginator
+    {
+        return RadPostAuth::query()
+            // Never select `pass`: for PAP it holds the submitted password.
+            ->select(['id', 'username', 'reply', 'authdate'])
+            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('username', 'ilike', '%'.$s.'%'))
+            ->when($filters['reply'] ?? null, fn ($q, $r) => $q->where('reply', $r))
+            ->when($filters['from'] ?? null, fn ($q, $d) => $q->whereDate('authdate', '>=', $d))
+            ->when($filters['to'] ?? null, fn ($q, $d) => $q->whereDate('authdate', '<=', $d))
+            ->orderByDesc('authdate')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+    }
+
+    /** Recent authentication attempts for one customer (accepts and rejects). */
+    public function recentAuthAttempts(string $username, int $limit = 15): Collection
+    {
+        return RadPostAuth::query()
+            ->select(['id', 'username', 'reply', 'authdate'])
+            ->where('username', $username)
+            ->orderByDesc('authdate')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get();
+    }
+
+    /** Rejected-authentication count over the last N hours (health signal). */
+    public function recentRejectCount(int $hours = 24): int
+    {
+        return RadPostAuth::rejected()
+            ->where('authdate', '>=', now()->subHours($hours))
+            ->count();
+    }
+
+    /**
      * Keep the FreeRADIUS nas table in sync with a billing router.
      *
      * Pass $reload = false to skip the FreeRADIUS restart when syncing many
      * routers at once (e.g. seeding); call reloadServer() once afterwards.
      *
+     * Pass $oldNasIp (the router's nas_ip before it was updated) when the
+     * address may have changed: nas rows are keyed by nasname, so without it
+     * the previous address is left behind as a client FreeRADIUS still trusts
+     * with this router's secret.
+     *
      * Returns the reload outcome so callers can warn the operator: true when
      * FreeRADIUS restarted, false when the reload command failed, null when no
      * reload was attempted (no nas_ip, reload skipped, or reload disabled).
      */
-    public function syncNas(Router $router, bool $reload = true): ?bool
+    public function syncNas(Router $router, bool $reload = true, ?string $oldNasIp = null): ?bool
     {
         if (! $router->nas_ip) {
             return null;
         }
 
-        Nas::updateOrCreate(
-            ['nasname' => $router->nas_ip],
-            [
-                'shortname' => $router->name,
-                'type' => 'other',
-                'secret' => $router->radius_secret ?: 'secret',
-                'description' => 'Managed by ISP Billing',
-            ],
-        );
+        DB::connection('radius')->transaction(function () use ($router, $oldNasIp) {
+            if ($oldNasIp && $oldNasIp !== $router->nas_ip) {
+                $this->forgetNas($oldNasIp, $router->getKey());
+            }
+
+            Nas::updateOrCreate(
+                ['nasname' => $router->nas_ip],
+                [
+                    'shortname' => $router->name,
+                    'type' => self::NAS_TYPE,
+                    'secret' => $router->radius_secret ?: 'secret',
+                    'description' => 'Managed by ISP Billing',
+                ],
+            );
+        });
 
         return $reload ? $this->reloadServer() : null;
+    }
+
+    /**
+     * Drop a removed router's NAS client so FreeRADIUS stops trusting the
+     * address. Returns the reload outcome like syncNas().
+     */
+    public function deleteNas(Router $router, bool $reload = true): ?bool
+    {
+        if (! $router->nas_ip) {
+            return null;
+        }
+
+        $this->forgetNas($router->nas_ip, $router->getKey());
+
+        return $reload ? $this->reloadServer() : null;
+    }
+
+    /**
+     * Delete the nas row for an address, unless another (non-trashed) router
+     * still points at it — two routers sharing an address is meaningless to
+     * FreeRADIUS, but we must never delete a sibling's client row.
+     */
+    private function forgetNas(string $nasIp, ?int $exceptRouterId = null): void
+    {
+        $stillInUse = Router::where('nas_ip', $nasIp)
+            ->when($exceptRouterId, fn ($q, $id) => $q->whereKeyNot($id))
+            ->exists();
+
+        if (! $stillInUse) {
+            Nas::where('nasname', $nasIp)->delete();
+        }
     }
 
     /**

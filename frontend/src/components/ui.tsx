@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import Link from "next/link";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
@@ -151,16 +152,25 @@ export function Table({ headers, children, loading, empty }: {
   );
 }
 
-export function StatCard({ label, value, accent, hint }: {
-  label: string; value: ReactNode; accent?: string; hint?: string;
+/**
+ * Pass `href` rather than wrapping the card in a <Link>: the link has to be
+ * the thing that fills the grid cell, otherwise the card sits short inside a
+ * stretched anchor and its bottom edge drifts out of line with its neighbours.
+ * h-full + mt-auto keep every box in a row the same height whether or not it
+ * has a hint, with the hints on a common baseline.
+ */
+export function StatCard({ label, value, accent, hint, href }: {
+  label: string; value: ReactNode; accent?: string; hint?: string; href?: string;
 }) {
-  return (
-    <Card className="p-5">
+  const card = (
+    <Card className={`flex h-full flex-col p-5 ${href ? "transition hover:border-slate-300 hover:shadow" : ""}`}>
       <p className="text-sm text-slate-500">{label}</p>
       <p className={`mt-1.5 text-3xl font-semibold ${accent ?? "text-slate-900"}`}>{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="mt-auto pt-1 text-xs text-slate-400">{hint}</p>}
     </Card>
   );
+
+  return href ? <Link href={href} className="block h-full">{card}</Link> : card;
 }
 
 export function ErrorNote({ message }: { message?: string | null }) {
