@@ -10,16 +10,30 @@ export function formatMoney(amount: number | string, currency = "MMK"): string {
   return `${(n ?? 0).toLocaleString()} ${currency}`;
 }
 
+/**
+ * Dates render as day-month-year ("31 Jul 2026") everywhere.
+ *
+ * The locale is pinned to en-GB rather than left as `undefined`: with the
+ * browser locale the same record renders as US month-first (or an all-numeric
+ * MM/DD/YY on locales that ignore the options), so what staff saw depended on
+ * whose machine they sat at. 07/08/26 is genuinely ambiguous across a customer
+ * base; a spelled-out month never is.
+ */
+const DATE_LOCALE = "en-GB";
+
 export function formatDate(value?: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return new Date(value).toLocaleDateString(DATE_LOCALE, {
+    day: "numeric", month: "short", year: "numeric",
+  });
 }
 
 export function formatDateTime(value?: string | null): string {
   if (!value) return "—";
-  return new Date(value).toLocaleString(undefined, {
-    year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+  const d = new Date(value);
+  const date = d.toLocaleDateString(DATE_LOCALE, { day: "numeric", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString(DATE_LOCALE, { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${date}, ${time}`;
 }
 
 export function formatDuration(seconds?: number | null): string {
