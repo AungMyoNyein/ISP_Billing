@@ -17,3 +17,6 @@ Schedule::command('billing:process')->hourly();
 // SMARTOLT_BASE_URL / SMARTOLT_API_KEY are set; create-only, so a slow or
 // failed run never half-writes anything.
 Schedule::command('smartolt:sync')->hourly()->withoutOverlapping();
+
+// nothing else trims the RADIUS log tables; run it off-peak
+Schedule::command('radius:prune')->dailyAt('03:15')->withoutOverlapping();

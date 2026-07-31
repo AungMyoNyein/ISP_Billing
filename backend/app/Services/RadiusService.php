@@ -13,6 +13,7 @@ use App\Models\Radius\RadReply;
 use App\Models\Radius\RadUserGroup;
 use App\Models\Router;
 use App\Models\ServicePlan;
+use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -299,8 +300,11 @@ class RadiusService
             ->select(['id', 'username', 'reply', 'authdate'])
             ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('username', 'ilike', '%'.$s.'%'))
             ->when($filters['reply'] ?? null, fn ($q, $r) => $q->where('reply', $r))
-            ->when($filters['from'] ?? null, fn ($q, $d) => $q->whereDate('authdate', '>=', $d))
-            ->when($filters['to'] ?? null, fn ($q, $d) => $q->whereDate('authdate', '<=', $d))
+            // half-open range rather than whereDate(): whereDate casts the
+            // column to ::date, which makes radpostauth_authdate_index
+            // unusable and forces a sequential scan
+            ->when($filters['from'] ?? null, fn ($q, $d) => $q->where('authdate', '>=', Carbon::parse($d)->startOfDay()))
+            ->when($filters['to'] ?? null, fn ($q, $d) => $q->where('authdate', '<', Carbon::parse($d)->addDay()->startOfDay()))
             ->orderByDesc('authdate')
             ->orderByDesc('id')
             ->paginate($perPage);
