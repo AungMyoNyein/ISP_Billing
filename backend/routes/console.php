@@ -20,3 +20,7 @@ Schedule::command('smartolt:sync')->hourly()->withoutOverlapping();
 
 // nothing else trims the RADIUS log tables; run it off-peak
 Schedule::command('radius:prune')->dailyAt('03:15')->withoutOverlapping();
+
+// runs every morning; the command itself decides whether today is a send day
+// for the configured daily/weekly/monthly frequency
+Schedule::command('reports:email')->dailyAt('07:00')->withoutOverlapping();

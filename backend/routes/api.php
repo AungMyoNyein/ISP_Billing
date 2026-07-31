@@ -108,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:admin.settings')->group(function () {
         Route::get('/settings', [SettingController::class, 'index']);
         Route::put('/settings', [SettingController::class, 'update']);
+        Route::post('/settings/test-email', [SettingController::class, 'testEmail']);
     });
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('permission:admin.audit');
     Route::middleware('permission:admin.backup')->group(function () {

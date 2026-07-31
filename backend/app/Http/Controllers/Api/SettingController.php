@@ -3,18 +3,35 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ReportDigestMail;
 use App\Models\AuditLog;
 use App\Models\Setting;
+use App\Services\MailSettingsService;
+use App\Services\ReportDigestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class SettingController extends Controller
 {
+    public function __construct(private readonly MailSettingsService $mailSettings)
+    {
+    }
+
     public function index(): JsonResponse
     {
-        return response()->json(
-            Setting::orderBy('group')->orderBy('key')->get()->groupBy('group'),
-        );
+        $settings = Setting::orderBy('group')->orderBy('key')->get()
+            // the SMTP password never leaves the API; the UI shows whether one
+            // is set and can replace it, but cannot read it back
+            ->map(function (Setting $setting) {
+                if (in_array($setting->key, MailSettingsService::SECRET_KEYS, true)) {
+                    $setting->value = filled($setting->value) ? '********' : null;
+                }
+
+                return $setting;
+            });
+
+        return response()->json($settings->groupBy('group'));
     }
 
     public function update(Request $request): JsonResponse
@@ -27,11 +44,23 @@ class SettingController extends Controller
         ]);
 
         foreach ($data['settings'] as $item) {
+            $value = $item['value'] ?? null;
+
             if ($item['key'] === 'company.logo') {
-                $this->assertValidLogo($item['value'] ?? null);
+                $this->assertValidLogo($value);
             }
 
-            Setting::setValue($item['key'], $item['value'] ?? null, $item['group'] ?? 'general');
+            if (in_array($item['key'], MailSettingsService::SECRET_KEYS, true)) {
+                // the mask is what index() handed out — saving the form back
+                // unchanged must not overwrite the real password with it
+                if ($value === '********') {
+                    continue;
+                }
+
+                $value = filled($value) ? $this->mailSettings->encryptPassword((string) $value) : null;
+            }
+
+            Setting::setValue($item['key'], $value, $item['group'] ?? 'general');
         }
 
         AuditLog::record('settings_updated', null, [
@@ -39,6 +68,38 @@ class SettingController extends Controller
         ]);
 
         return response()->json(['message' => 'Settings saved.']);
+    }
+
+    /**
+     * Send the report to one address now, so an operator can prove the SMTP
+     * settings work without waiting for 07:00 the next morning.
+     */
+    public function testEmail(Request $request, ReportDigestService $digests): JsonResponse
+    {
+        $data = $request->validate([
+            'to' => ['required', 'email'],
+            'frequency' => ['nullable', 'in:daily,weekly,monthly'],
+        ]);
+
+        $frequency = $data['frequency'] ?? (string) Setting::getValue('reports.email.frequency', 'daily');
+
+        $this->mailSettings->apply();
+
+        try {
+            Mail::to($data['to'])->send(new ReportDigestMail($digests->build($frequency)));
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Sending failed: '.$e->getMessage(),
+            ], 422);
+        }
+
+        AuditLog::record('report_email_tested', null, ['to' => $data['to'], 'frequency' => $frequency]);
+
+        return response()->json([
+            'message' => $this->mailSettings->configured()
+                ? "Test report sent to {$data['to']}."
+                : "Mail is not configured, so the report was written to the application log instead of being sent to {$data['to']}.",
+        ]);
     }
 
     /**
