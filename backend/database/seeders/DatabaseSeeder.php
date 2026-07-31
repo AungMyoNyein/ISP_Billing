@@ -62,6 +62,12 @@ class DatabaseSeeder extends Seeder
         // ---- Settings ----------------------------------------------
         Setting::setValue('company.name', 'Demo ISP Ltd.', 'company');
         Setting::setValue('company.currency', 'MMK', 'company');
+        // letterhead shown on printed invoices
+        Setting::setValue('company.address', '', 'company');
+        Setting::setValue('company.phone', '', 'company');
+        Setting::setValue('company.email', '', 'company');
+        Setting::setValue('company.logo', null, 'company');
+        Setting::setValue('company.slogan', '', 'company');
         Setting::setValue('billing.due_days', 5, 'billing');
         Setting::setValue('billing.auto_suspend', true, 'billing');
 

@@ -73,10 +73,15 @@ function InvoicesInner() {
               <td className="px-4 py-3">{formatDate(inv.billing_date)}</td>
               <td className="px-4 py-3">{formatDate(inv.due_date)}</td>
               <td className="px-4 py-3"><Badge value={inv.status} /></td>
-              <td className="px-4 py-3 text-right">
-                {inv.status !== "paid" && inv.status !== "cancelled" && (
-                  <Button variant="secondary" onClick={() => setPaying(inv)}>Mark Paid</Button>
-                )}
+              <td className="px-4 py-3">
+                <div className="flex items-center justify-end gap-2">
+                  {inv.status !== "paid" && inv.status !== "cancelled" && (
+                    <Button variant="secondary" onClick={() => setPaying(inv)}>Mark Paid</Button>
+                  )}
+                  <Link href={`/billing/invoices/${inv.id}/print`}>
+                    <Button variant="secondary">Print</Button>
+                  </Link>
+                </div>
               </td>
             </tr>
           ))}

@@ -184,3 +184,20 @@ export interface SystemStatus {
   smartolt: { configured: boolean };
   checked_at: string;
 }
+
+/** ISP letterhead from System Settings, printed on invoices. */
+export interface CompanyInfo {
+  name: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  logo: string | null;
+  /** printed in the invoice footer */
+  slogan: string | null;
+  currency: string | null;
+}
+
+export interface InvoicePrintData {
+  invoice: Invoice;
+  company: CompanyInfo;
+}

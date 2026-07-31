@@ -284,7 +284,7 @@ function AuthReply({ reply }: { reply: string }) {
 function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
   return (
     <Card>
-      <Table headers={["Invoice #", "Amount", "Billing Date", "Due Date", "Period", "Status"]} empty={invoices.length === 0}>
+      <Table headers={["Invoice #", "Amount", "Billing Date", "Due Date", "Period", "Status", ""]} empty={invoices.length === 0}>
         {invoices.map((inv) => (
           <tr key={inv.id} className="hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-blue-700">
@@ -295,6 +295,11 @@ function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
             <td className="px-4 py-3">{formatDate(inv.due_date)}</td>
             <td className="px-4 py-3 text-xs">{formatDate(inv.period_start)} → {formatDate(inv.period_end)}</td>
             <td className="px-4 py-3"><Badge value={inv.status} /></td>
+            <td className="px-4 py-3 text-right">
+              <Link href={`/billing/invoices/${inv.id}/print`}>
+                <Button variant="secondary">Print</Button>
+              </Link>
+            </td>
           </tr>
         ))}
       </Table>

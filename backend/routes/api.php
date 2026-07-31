@@ -58,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:billing.view')->group(function () {
         Route::get('/invoices', [InvoiceController::class, 'index']);
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
+        Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print']);
         Route::get('/payments', [PaymentController::class, 'index']);
         Route::get('/payments/{payment}', [PaymentController::class, 'show']);
         Route::get('/billing/renewals', [BillingController::class, 'renewals']);

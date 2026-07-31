@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\Setting;
 use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,33 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice): JsonResponse
     {
         return response()->json($invoice->load(['customer', 'servicePlan', 'payments.receiver:id,name']));
+    }
+
+    /**
+     * Everything a printed invoice shows, in one request: the invoice, the
+     * customer (address / phone / expiry come from the customer record, not
+     * the invoice) and the ISP's own letterhead details from settings.
+     *
+     * The letterhead is bundled here rather than fetched from /settings so
+     * that a billing clerk can print without holding the admin.settings
+     * permission.
+     */
+    public function print(Invoice $invoice): JsonResponse
+    {
+        $invoice->load(['customer.servicePlan', 'servicePlan']);
+
+        return response()->json([
+            'invoice' => $invoice,
+            'company' => [
+                'name' => Setting::getValue('company.name', config('app.name')),
+                'address' => Setting::getValue('company.address'),
+                'phone' => Setting::getValue('company.phone'),
+                'email' => Setting::getValue('company.email'),
+                'logo' => Setting::getValue('company.logo'),
+                'slogan' => Setting::getValue('company.slogan'),
+                'currency' => Setting::getValue('company.currency', 'MMK'),
+            ],
+        ]);
     }
 
     public function update(Request $request, Invoice $invoice): JsonResponse
