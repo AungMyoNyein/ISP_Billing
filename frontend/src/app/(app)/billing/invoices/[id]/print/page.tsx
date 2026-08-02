@@ -125,7 +125,7 @@ export default function InvoicePrintPage() {
         {/* the letterhead already carries the address; the footer is the
             slogan, and drops out entirely when none is set */}
         {company.slogan && (
-          <footer className="mt-8 border-t border-slate-200 pt-4 text-center text-sm text-slate-500">
+          <footer className="mt-8 border-t border-slate-200 pt-4 text-center text-sm font-bold text-slate-700">
             {company.slogan}
           </footer>
         )}
