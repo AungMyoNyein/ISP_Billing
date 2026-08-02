@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 
 class Customer extends Model
 {
@@ -45,9 +46,30 @@ class Customer extends Model
     protected function radiusPassword(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value) => $value === null ? null : Crypt::decryptString($value),
+            get: fn (?string $value) => $value === null ? null : $this->decryptPassword($value),
             set: fn (?string $value) => $value === null ? null : Crypt::encryptString($value),
         );
+    }
+
+    /**
+     * A row encrypted under a different APP_KEY — restored from a backup, or
+     * copied from the other host — cannot be read back. Returning null lets
+     * the customer still be opened and the password re-entered, where
+     * throwing took the whole detail page down with a DecryptException
+     * ("The MAC is invalid") and left no way to fix it from the UI.
+     */
+    private function decryptPassword(string $value): ?string
+    {
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Throwable $e) {
+            Log::warning('Customer RADIUS password could not be decrypted.', [
+                'customer_id' => $this->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     public function servicePlan(): BelongsTo

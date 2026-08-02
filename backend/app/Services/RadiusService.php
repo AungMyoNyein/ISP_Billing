@@ -126,8 +126,22 @@ class RadiusService
         $customer->loadMissing('servicePlan');
         $plan = $customer->servicePlan;
         $username = $customer->username;
+        $password = $customer->radius_password;
 
-        DB::connection('radius')->transaction(function () use ($customer, $plan, $username) {
+        // An unreadable password (encrypted under a superseded APP_KEY) reads
+        // as null. Deleting the existing radcheck row and writing that back
+        // would disconnect a customer who is authenticating perfectly well on
+        // the password already there, so leave RADIUS untouched and say so.
+        if ($password === null) {
+            Log::warning('Skipped RADIUS provisioning: no readable password.', [
+                'customer_id' => $customer->getKey(),
+                'username' => $username,
+            ]);
+
+            return;
+        }
+
+        DB::connection('radius')->transaction(function () use ($customer, $plan, $username, $password) {
             // Authentication
             RadCheck::where('username', $username)
                 ->whereIn('attribute', ['Cleartext-Password', 'Simultaneous-Use'])
@@ -136,7 +150,7 @@ class RadiusService
                 'username' => $username,
                 'attribute' => 'Cleartext-Password',
                 'op' => ':=',
-                'value' => $customer->radius_password,
+                'value' => $password,
             ]);
 
             // Per-user replies: only the static IP; the rest comes from the group
