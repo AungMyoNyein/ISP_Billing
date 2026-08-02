@@ -12,3 +12,15 @@ Artisan::command('inspire', function () {
 // suspend the customer and disable RADIUS access; expired customers
 // are marked expired and disconnected.
 Schedule::command('billing:process')->hourly();
+
+// Import ONUs authorised in SmartOLT as pending customers. No-op unless
+// SMARTOLT_BASE_URL / SMARTOLT_API_KEY are set; create-only, so a slow or
+// failed run never half-writes anything.
+Schedule::command('smartolt:sync')->hourly()->withoutOverlapping();
+
+// nothing else trims the RADIUS log tables; run it off-peak
+Schedule::command('radius:prune')->dailyAt('03:15')->withoutOverlapping();
+
+// runs every morning; the command itself decides whether today is a send day
+// for the configured daily/weekly/monthly frequency
+Schedule::command('reports:email')->dailyAt('07:00')->withoutOverlapping();

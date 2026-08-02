@@ -102,7 +102,7 @@ created its tables, the migration leaves them untouched.
 **Scheduler (required in production)** — add to crontab:
 
 ```
-* * * * * cd /path/to/backend && php artisan schedule:run >> /dev/null 2>&1
+* * * * * /usr/bin/php /path/to/backend/artisan schedule:run >/dev/null 2>>/path/to/backend/storage/logs/scheduler.log
 ```
 
 This runs `billing:process` hourly (suspend overdue, expire past-due).

@@ -32,14 +32,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+    <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white">IB</div>
-          <h1 className="text-2xl font-semibold text-slate-900">ISP Billing</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to your account</p>
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-sm font-semibold text-white">IB</div>
+          <h1 className="text-2xl font-bold text-slate-900">ISP Billing</h1>
+          <p className="mt-0.5 text-sm text-slate-500">Sign in to your account</p>
         </div>
-        <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-6">
           <ErrorNote message={error} />
           <div className="space-y-4">
             <Field label="Email">

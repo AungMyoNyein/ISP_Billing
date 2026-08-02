@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AuthLogController;
 use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\CustomerController;
@@ -57,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:billing.view')->group(function () {
         Route::get('/invoices', [InvoiceController::class, 'index']);
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
+        Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print']);
         Route::get('/payments', [PaymentController::class, 'index']);
         Route::get('/payments/{payment}', [PaymentController::class, 'show']);
         Route::get('/billing/renewals', [BillingController::class, 'renewals']);
@@ -79,6 +81,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/routers/{router}', [RouterController::class, 'show']);
         Route::get('/routers/{router}/check', [RouterController::class, 'check']);
         Route::get('/sessions/online', [SessionController::class, 'index']);
+        Route::get('/sessions/auth-log', [AuthLogController::class, 'index']);
     });
     Route::middleware('permission:network.manage')->group(function () {
         Route::post('/routers', [RouterController::class, 'store']);
@@ -105,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:admin.settings')->group(function () {
         Route::get('/settings', [SettingController::class, 'index']);
         Route::put('/settings', [SettingController::class, 'update']);
+        Route::post('/settings/test-email', [SettingController::class, 'testEmail']);
     });
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('permission:admin.audit');
     Route::middleware('permission:admin.backup')->group(function () {

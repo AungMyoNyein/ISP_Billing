@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { api } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import { Card, PageHeader, StatCard, ErrorNote } from "@/components/ui";
@@ -32,17 +31,17 @@ export default function DashboardPage() {
       <ErrorNote message={error} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/customers"><StatCard label="Total Customers" value={stats?.total_customers ?? "…"} /></Link>
-        <Link href="/customers?status=active"><StatCard label="Active Customers" value={stats?.active_customers ?? "…"} accent="text-emerald-600" hint="Billing active" /></Link>
-        <Link href="/network/sessions"><StatCard label="Online Users" value={stats?.online_users ?? "…"} accent="text-blue-600" hint="PPPoE connected now" /></Link>
-        <Link href="/billing/suspended"><StatCard label="Suspended Customers" value={stats?.suspended_customers ?? "…"} accent="text-rose-600" /></Link>
-        <Link href="/customers?status=expired"><StatCard label="Expired Customers" value={stats?.expired_customers ?? "…"} accent="text-orange-600" /></Link>
-        <Link href="/billing/expiring"><StatCard label="Expire in 7 Days" value={stats?.expiring_in_7_days ?? "…"} accent="text-amber-600" /></Link>
-        <StatCard label="New Customers This Month" value={stats?.new_customers_this_month ?? "…"} />
+        <StatCard href="/customers" label="Total Customers" value={stats?.total_customers ?? "…"} hint="All accounts" />
+        <StatCard href="/customers?status=active" label="Active Customers" value={stats?.active_customers ?? "…"} accent="text-emerald-600" hint="Billing active" />
+        <StatCard href="/network/sessions" label="Online Users" value={stats?.online_users ?? "…"} accent="text-blue-600" hint="PPPoE connected now" />
+        <StatCard href="/billing/suspended" label="Suspended Customers" value={stats?.suspended_customers ?? "…"} accent="text-rose-600" hint="Auth blocked" />
+        <StatCard href="/customers?status=expired" label="Expired Customers" value={stats?.expired_customers ?? "…"} accent="text-orange-600" hint="Past validity" />
+        <StatCard href="/billing/expiring" label="Expire in 7 Days" value={stats?.expiring_in_7_days ?? "…"} accent="text-amber-600" hint="Renewal due soon" />
+        <StatCard label="New Customers This Month" value={stats?.new_customers_this_month ?? "…"} hint="Signed up since the 1st" />
         <StatCard label="Revenue This Month" value={stats ? formatMoney(stats.revenue_this_month) : "…"} accent="text-emerald-700" hint={`${stats?.unpaid_invoices ?? 0} unpaid invoice(s)`} />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-4 text-sm font-semibold text-slate-700">Revenue — last 6 months</h2>
           <BarChart
@@ -77,9 +76,12 @@ function BarChart({ data, format, color }: {
   return (
     <div className="flex h-44 items-end gap-3">
       {data.map((d) => (
-        <div key={d.label} className="group flex flex-1 flex-col items-center gap-1" title={format(d.value)}>
-          <span className="text-[10px] text-slate-400 opacity-0 transition group-hover:opacity-100">{format(d.value)}</span>
-          <div className={`w-full rounded-t ${color}`} style={{ height: `${Math.max((d.value / max) * barArea, 3)}px` }} />
+        <div key={d.label} className="group flex flex-1 flex-col items-center gap-1.5" title={format(d.value)}>
+          <span className="text-[10px] text-slate-400 opacity-0 transition-opacity group-hover:opacity-100">{format(d.value)}</span>
+          <div
+            className={`w-full rounded-md opacity-90 transition-opacity group-hover:opacity-100 ${color}`}
+            style={{ height: `${Math.max((d.value / max) * barArea, 3)}px` }}
+          />
           <span className="text-xs text-slate-500">{d.label}</span>
         </div>
       ))}

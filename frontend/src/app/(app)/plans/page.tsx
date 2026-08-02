@@ -168,8 +168,8 @@ function PlanForm({ plan, onSaved }: { plan?: ServicePlan; onSaved: () => void }
         <Field label="RADIUS Group (blank = auto from plan name)" error={err("radius_group")}>
           <input className={inputCls} value={form.radius_group} onChange={(e) => set("radius_group", e.target.value)} />
         </Field>
-        <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
-          <input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} />
+        <label className="flex items-center gap-2 pb-1.5 pt-6 text-sm text-slate-700">
+          <input type="checkbox" className="h-4 w-4 shrink-0" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} />
           Plan is active
         </label>
       </div>

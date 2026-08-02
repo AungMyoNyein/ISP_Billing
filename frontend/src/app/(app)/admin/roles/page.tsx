@@ -112,15 +112,15 @@ function RoleForm({ role, available, onSaved }: { role?: Role; available: string
       </Field>
       <div>
         <p className="mb-2 text-sm font-medium text-slate-700">Permissions</p>
-        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-800">
-          <input type="checkbox" checked={all} onChange={() => setPermissions(all ? [] : ["*"])} />
+        <label className="mb-2 flex items-center gap-2 py-1.5 text-sm font-medium text-slate-800">
+          <input type="checkbox" className="h-4 w-4 shrink-0" checked={all} onChange={() => setPermissions(all ? [] : ["*"])} />
           All permissions (*)
         </label>
         {!all && (
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
             {available.map((p) => (
-              <label key={p} className="flex items-center gap-2 text-sm text-slate-600">
-                <input type="checkbox" checked={permissions.includes(p)} onChange={() => toggle(p)} />
+              <label key={p} className="flex items-center gap-2 py-1.5 text-sm text-slate-600">
+                <input type="checkbox" className="h-4 w-4 shrink-0" checked={permissions.includes(p)} onChange={() => toggle(p)} />
                 {p}
               </label>
             ))}

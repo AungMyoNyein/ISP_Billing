@@ -46,6 +46,17 @@ return [
         // required (a reload/HUP does not re-read the nas table). Set empty to
         // disable; the web user needs permission to run it (e.g. a sudoers rule).
         'reload_command' => env('RADIUS_RELOAD_COMMAND', 'sudo -n systemctl restart freeradius'),
+
+        // How long a session may go without an accounting update before it
+        // stops counting as online. A radacct row is only closed by an
+        // Accounting-Stop, so a NAS that reboots or loses its uplink leaves
+        // sessions open forever and every "online" figure freezes.
+        //
+        // This relies on interim accounting: plans set Acct-Interim-Interval,
+        // and the NAS must be configured to send updates. Raise it if your
+        // interval is longer than a few minutes; set 0 to disable the check
+        // and go back to trusting acctstoptime alone.
+        'session_stale_minutes' => (int) env('RADIUS_SESSION_STALE_MINUTES', 30),
     ],
 
 ];

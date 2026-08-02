@@ -46,8 +46,9 @@ class RouterController extends Controller
         if (($data['radius_secret'] ?? null) === '') {
             unset($data['radius_secret']); // blank means keep the stored secret
         }
+        $oldNasIp = $router->nas_ip;
         $router->update($data);
-        $reloaded = $this->radius->syncNas($router);
+        $reloaded = $this->radius->syncNas($router, oldNasIp: $oldNasIp);
         AuditLog::record('updated', $router, array_diff_key($router->getChanges(), array_flip(['radius_secret'])));
 
         return response()->json($router->toArray() + ['radius_reloaded' => $reloaded]);
@@ -57,9 +58,10 @@ class RouterController extends Controller
     {
         abort_if($router->customers()->exists(), 422, 'Router has customers assigned; reassign them first.');
         $router->delete();
+        $reloaded = $this->radius->deleteNas($router);
         AuditLog::record('deleted', $router, ['name' => $router->name]);
 
-        return response()->json(['message' => 'Router deleted.']);
+        return response()->json(['message' => 'Router deleted.', 'radius_reloaded' => $reloaded]);
     }
 
     /** Connectivity check: ICMP ping + RADIUS CoA probe + radacct session count. */

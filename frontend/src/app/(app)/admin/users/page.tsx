@@ -111,8 +111,8 @@ function UserForm({ user, roles, onSaved }: { user?: User; roles: Role[]; onSave
           {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       </Field>
-      <label className="flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} />
+      <label className="flex items-center gap-2 py-1.5 text-sm text-slate-700">
+        <input type="checkbox" className="h-4 w-4 shrink-0" checked={form.is_active} onChange={(e) => set("is_active", e.target.checked)} />
         Account is active
       </label>
       <div className="flex justify-end">

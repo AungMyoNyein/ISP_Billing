@@ -79,7 +79,7 @@ function HealthCard({ label, ok, detail, neutral }: { label: string; ok: boolean
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">{label}</p>
+        <p className="text-sm font-bold text-slate-700">{label}</p>
         <span className={`h-3 w-3 rounded-full ${neutral ? "bg-slate-300" : ok ? "bg-emerald-500" : "bg-rose-500"}`} />
       </div>
       <p className="mt-2 text-lg font-semibold text-slate-900">{neutral ? "—" : ok ? "Healthy" : "Attention"}</p>

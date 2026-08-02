@@ -12,13 +12,37 @@ MySQL schemas are supported).
 | Table          | Managed rows                                                       |
 |----------------|--------------------------------------------------------------------|
 | `radcheck`     | `Cleartext-Password :=` per customer; `Auth-Type := Reject` while suspended/expired |
-| `radreply`     | `Mikrotik-Rate-Limit`, `Session-Timeout`, `Idle-Timeout` from the service plan |
+| `radreply`     | the customer's static `Framed-IP-Address`, when set                 |
+| `radgroupreply`| per plan: `Mikrotik-Rate-Limit`, `Framed-Pool`, `Session-Timeout`, `Idle-Timeout`, `Acct-Interim-Interval`, plus `Service-Type`/`Framed-Protocol` |
+| `radgroupcheck`| per plan: `Simultaneous-Use`                                        |
 | `radusergroup` | the plan's `radius_group` + a `suspended` marker group              |
 | `nas`          | one row per router from the Network module (`nas_ip`, `radius_secret`) |
 
-`radacct` is read-only for the system: online sessions (rows without
-`acctstoptime`), per-customer daily bandwidth, and the dashboard's
-online-user count.
+`radacct` and `radpostauth` are read-only for the system: online sessions,
+per-customer daily bandwidth, the dashboard's online-user count, and the
+Authentication Log (Network → Authentication Log).
+
+### What counts as "online"
+
+A `radacct` row is closed only when the NAS sends an Accounting-Stop. A
+router that reboots, loses power or has its uplink cut never sends one, so
+its sessions stay open **forever** and every online figure freezes at the
+moment things broke — the dashboard keeps reporting users who left days ago.
+
+So a session counts as online only if it has no `acctstoptime` *and* its
+accounting is fresh: `COALESCE(acctupdatetime, acctstarttime)` within
+`RADIUS_SESSION_STALE_MINUTES` (default 30). The COALESCE matters — a
+session that just connected has no `acctupdatetime` until its first interim
+update, and must not be hidden.
+
+This depends on **interim accounting**. Plans set `Acct-Interim-Interval`,
+and the NAS must be configured to send updates; if yours are less frequent
+than every 30 minutes, raise `RADIUS_SESSION_STALE_MINUTES` above twice the
+interval or live sessions will drop off the list. Set it to `0` to disable
+the freshness check and trust `acctstoptime` alone.
+
+Stale rows are hidden, not deleted, so accounting history and bandwidth
+totals are unaffected.
 
 ### FreeRADIUS configuration
 
@@ -81,6 +105,26 @@ FreeRADIUS silently drops as an *unknown client* — the NAS reports a
 - The reload is best-effort: a failure logs a warning and the Routers page
   shows an amber banner — the router still saves.
 
+### NAS type and `Simultaneous-Use`
+
+Routers are written to `nas` with `nastype = mikrotik`
+(`RadiusService::NAS_TYPE`). The type only matters when a plan sets
+**Simultaneous-Use**: FreeRADIUS then calls `checkrad` to ask whether an
+existing `radacct` session is really still live before rejecting the new
+login. `mikrotik` selects checkrad's `mikrotik_telnet` probe.
+
+That probe telnets into the router, so it needs:
+
+- telnet enabled on the MikroTik (Winbox → IP → Services), and
+- the router's credentials in `/etc/freeradius/3.0/naspasswd`, one line per
+  NAS: `<nas-ip> <user> <password>`.
+
+Without those, the probe times out (~seconds per check) and stale sessions
+are treated as live, so a customer who crashed offline can't reconnect until
+the accounting row is closed. If you don't want session verification, set
+those plans' Simultaneous-Use to blank, or change `NAS_TYPE` to `other` —
+with `other`, checkrad is skipped and the `radacct` row is trusted as-is.
+
 ### Firewall / network (UDP 1812 + 1813)
 
 FreeRADIUS listens on **UDP 1812** (auth) and **UDP 1813** (accounting).
@@ -124,6 +168,18 @@ RADIUS Disconnect-Request (RFC 5176, sent with `radclient` to the NAS
 CoA port) so the customer is offline immediately — accounting history
 is preserved. Reconnection removes both rows and re-provisions plan
 attributes.
+
+**Rejects are sent immediately.** FreeRADIUS ships with
+`reject_delay = 1` in `radiusd.conf`, holding every Access-Reject for a
+second to slow brute-force attempts. MikroTik's RADIUS timeout defaults
+to **300 ms**, so a suspended customer's reject arrives long after the
+NAS gave up — the router logs a *RADIUS timeout* instead of an
+authentication failure, which looks identical to an unreachable server.
+`install.sh` therefore sets `reject_delay = 0` (keeping the distro file
+as `radiusd.conf.dist`). Clients are limited to the billing-managed
+`nas` table, so the rate-limit protects little. Also raise the NAS side
+— `/radius set [find] timeout=3s` — since 300 ms is too tight for any
+SQL-backed RADIUS once the `radcheck` query is under load.
 
 ## NAS routers (MikroTik or any RADIUS-capable BRAS)
 
@@ -173,3 +229,51 @@ Give each customer their **ONU serial** in the CRM, then:
 - `SmartOltService` also exposes `enableOnu()` / `disableOnu()` for
   custom flows (not wired to suspension by default — suspension is
   enforced at the RADIUS/PPPoE layer).
+
+### Importing ONUs as customers (`smartolt:sync`)
+
+Authorise the ONU in SmartOLT and the customer appears in billing on the
+next hourly run — no re-typing. Identity comes from the ONU itself:
+
+| Billing field | SmartOLT source |
+|---|---|
+| `customer_code` and `name` | ONU **Name** (both, there is no separate name) |
+| `username` / `radius_password` | WAN setup PPPoE username / password |
+| `address`, `dn_zone`, `sn_odb`, `gps_location` | ONU address / zone / ODB / GPS |
+| `smartolt_onu_sn` | ONU serial — the sync key, now `UNIQUE` |
+| service plan, activation and expiry dates | **not imported** — set them in billing |
+
+Imported customers land as **pending**: nothing is written to RADIUS and
+no invoice is raised. Assign a plan and activate to provision access.
+
+The sync is **create-only**. An ONU serial billing already knows —
+including soft-deleted customers — is left untouched, so it never
+overwrites an operator's edits. It also skips, rather than guesses, when
+an ONU has no serial, no name, no PPPoE credentials, or whose code or
+username collides with an existing customer (or with another ONU in the
+same batch); every skip is printed with its reason.
+
+```bash
+php artisan smartolt:sync --dry-run   # show what would be imported
+php artisan smartolt:sync             # import
+```
+
+Scheduled hourly in `routes/console.php` alongside `billing:process`, and
+a no-op while SmartOLT is unconfigured.
+
+What the live API returns (verified against a production account):
+
+- `GET /onu/get_all_onus_details` → `{onus: [...], status, response_code}`,
+  every ONU in one response — there is no pagination to handle.
+- PPPoE credentials are **inline on each ONU** as `username` / `password`,
+  in cleartext. There is no separate WAN-config endpoint;
+  `/onu/get_onu_wan_config/{sn}` answers **405**.
+- Useful fields: `sn`, `name`, `zone_name`, `odb_name`, `address`,
+  `administrative_status` (only `Enabled` ONUs are imported), `wan_mode`
+  (an ONU set to "Setup via ONU webpage" has no credentials and is
+  skipped), `latitude`/`longitude` (null unless the ONU is placed on the
+  map — `gps_location` is only set when both are present).
+
+Field names are still read through a small candidate list per field
+(`SN_KEYS`, `NAME_KEYS`, `PPPOE_*_KEYS` in `SyncSmartOlt`), so a payload
+change shows up as a skip with a reason rather than a bad customer.
