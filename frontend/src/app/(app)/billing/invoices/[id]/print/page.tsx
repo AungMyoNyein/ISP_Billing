@@ -33,17 +33,21 @@ export default function InvoicePrintPage() {
         <Button onClick={() => window.print()}>Print invoice</Button>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-8 text-slate-800 print:rounded-none print:border-0 print:p-0">
-        <header className="flex flex-wrap items-start justify-between gap-6 border-b border-slate-200 pb-6">
-          <div className="flex items-start gap-4">
+      <div className="rounded-lg border border-slate-200 bg-white p-5 text-slate-800 print:rounded-none print:border-0 print:p-0 sm:p-8">
+        <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6 sm:gap-6">
+          {/* min-w-0 lets this column shrink below its content width — without
+              it a long ISP address pushed the page past a 375px screen — and it
+              stacks under the logo on a phone, where side by side leaves the
+              text column narrow enough to break an email address mid-word */}
+          <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:gap-4">
             {company.logo && (
               // stored as a data URI so it prints without a network fetch
               // eslint-disable-next-line @next/next/no-img-element
               <img src={company.logo} alt="" className="max-h-16 max-w-[8rem] object-contain" />
             )}
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">{company.name || "—"}</h1>
-              <div className="mt-1 space-y-0.5 text-sm text-slate-600">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-slate-900 sm:text-xl">{company.name || "—"}</h1>
+              <div className="mt-1 space-y-0.5 break-words text-sm text-slate-600">
                 {company.address && <p className="whitespace-pre-line">Address: {company.address}</p>}
                 {company.phone && <p>Phone: {company.phone}</p>}
                 {company.email && <p>Email: {company.email}</p>}
@@ -51,14 +55,14 @@ export default function InvoicePrintPage() {
             </div>
           </div>
 
-          <div className="text-right">
-            <p className="text-2xl font-bold tracking-tight text-slate-900">INVOICE</p>
+          <div className="text-left sm:text-right">
+            <p className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">INVOICE</p>
             <p className="mt-1 font-mono text-sm text-slate-600">{invoice.invoice_number}</p>
             <div className="mt-3 space-y-0.5 text-sm">
               <p><span className="text-slate-500">Invoice Date: </span>{formatDate(invoice.billing_date)}</p>
               <p><span className="text-slate-500">Due Date: </span>{formatDate(invoice.due_date)}</p>
             </div>
-            <div className="mt-2 flex justify-end"><Badge value={invoice.status} /></div>
+            <div className="mt-2 flex justify-start sm:justify-end"><Badge value={invoice.status} /></div>
           </div>
         </header>
 
@@ -87,14 +91,14 @@ export default function InvoicePrintPage() {
         <table className="w-full py-6 text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-600">
-              <th className="py-2.5 font-bold">Description</th>
-              <th className="py-2.5 text-center font-bold">Month</th>
+              <th className="py-2.5 pr-3 font-bold">Description</th>
+              <th className="px-3 py-2.5 text-center font-bold">Month</th>
               <th className="py-2.5 text-right font-bold">Amount</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-slate-100">
-              <td className="py-3">
+              <td className="py-3 pr-3">
                 {invoice.service_plan?.name ?? "Internet service"}
                 {invoice.period_start && invoice.period_end && (
                   <span className="block text-xs text-slate-500">
@@ -102,14 +106,14 @@ export default function InvoicePrintPage() {
                   </span>
                 )}
               </td>
-              <td className="py-3 text-center tabular-nums">{billedMonthsLabel(invoice)}</td>
-              <td className="py-3 text-right tabular-nums">{money(invoice.amount)}</td>
+              <td className="whitespace-nowrap px-3 py-3 text-center tabular-nums">{billedMonthsLabel(invoice)}</td>
+              <td className="whitespace-nowrap py-3 text-right tabular-nums">{money(invoice.amount)}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
-              <td className="py-3 text-right font-bold" colSpan={2}>Total</td>
-              <td className="py-3 text-right text-lg font-bold tabular-nums text-slate-900">{money(invoice.amount)}</td>
+              <td className="py-3 pr-3 text-right font-bold" colSpan={2}>Total</td>
+              <td className="whitespace-nowrap py-3 text-right text-lg font-bold tabular-nums text-slate-900">{money(invoice.amount)}</td>
             </tr>
           </tfoot>
         </table>

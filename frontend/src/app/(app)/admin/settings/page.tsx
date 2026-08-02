@@ -268,8 +268,8 @@ function SettingInput({ field, values, setValues }: {
   return (
     <Field label={field.label}>
       {field.type === "boolean" ? (
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={Boolean(current)} onChange={(e) => set(e.target.checked)} />
+        <label className="flex items-center gap-2 py-1.5 text-sm text-slate-600">
+          <input type="checkbox" className="h-4 w-4 shrink-0" checked={Boolean(current)} onChange={(e) => set(e.target.checked)} />
           Enabled
         </label>
       ) : field.type === "textarea" ? (

@@ -230,7 +230,7 @@ function UsageTab({ usage, days, onDays, loading }: {
                 days === r ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              Last {r} days
+              {r} days
             </button>
           ))}
         </div>

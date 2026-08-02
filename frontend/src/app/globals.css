@@ -43,6 +43,18 @@ h3 {
   outline-offset: 2px;
 }
 
+/* On touch screens a link sitting inside a table cell is only as tall as its
+   text — about 16px, well under a thumb. Padding it out to the cell's own
+   height costs nothing on desktop, where this rule does not apply. */
+@media (pointer: coarse) {
+  td a,
+  td button {
+    display: inline-block;
+    padding-block: 0.5rem;
+    margin-block: -0.5rem;
+  }
+}
+
 @media print {
   /* the app canvas is grey on screen; paper should be white, and printing
      backgrounds is off by default in most browsers anyway */
