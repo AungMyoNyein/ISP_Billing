@@ -339,7 +339,11 @@ class RadiusService
             ->selectRaw('COALESCE(SUM(acctinputoctets), 0) as upload_bytes')
             ->selectRaw('COUNT(*) as sessions')
             ->where('username', $username)
-            ->where('acctstarttime', '>=', now()->subDays($days)->startOfDay())
+            // Cut the range on the database's clock, for the same reason
+            // RadAcct::scopeOnline does: acctstarttime is naive local time and
+            // a bound Carbon now() carries app.timezone, so the window landed
+            // hours away from the one the operator picked.
+            ->whereRaw("acctstarttime >= date_trunc('day', localtimestamp) - (? * interval '1 day')", [$days])
             ->groupBy(DB::raw('DATE(acctstarttime)'))
             ->orderBy('date')
             ->get();

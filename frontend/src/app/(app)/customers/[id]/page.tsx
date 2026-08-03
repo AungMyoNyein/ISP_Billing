@@ -277,7 +277,7 @@ function UsageTab({ usage, days, onDays, loading }: {
       <Card className="p-5">
         <h3 className="mb-4 text-sm font-semibold text-slate-700">Daily usage — last {days} days</h3>
         {usage.daily.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-400">No accounting data for this range.</p>
+          <EmptyRange days={days} usage={usage} />
         ) : view === "chart" ? (
           // holds its previous render at reduced opacity while refetching, so
           // switching range never collapses the card
@@ -376,6 +376,31 @@ function PresenceValue({ usage }: { usage: Usage }) {
         <p className="mt-0.5 text-xs text-slate-500">last seen {formatDuration(p.last_activity_age_seconds)} ago</p>
       )}
     </>
+  );
+}
+
+/**
+ * An empty range is ambiguous on its own — a customer who never connected
+ * looks the same as one whose accounting stopped six weeks ago. Since
+ * presence already knows when activity last arrived, say so: "nothing in 30
+ * days, most recent was 47 days ago" is what sends someone to look at the
+ * NAS, where a blank card sends them to widen the range until something
+ * appears.
+ */
+function EmptyRange({ days, usage }: { days: number; usage: Usage }) {
+  const age = usage.presence?.last_activity_age_seconds ?? null;
+  const olderThanRange = age !== null && age > days * 86400;
+
+  return (
+    <div className="py-8 text-center">
+      <p className="text-sm text-slate-400">No accounting data in the last {days} days.</p>
+      {age !== null && (
+        <p className="mt-1 text-xs text-slate-500">
+          Most recent session activity: {formatDuration(age)} ago
+          {olderThanRange ? " — try a longer range" : ""}
+        </p>
+      )}
+    </div>
   );
 }
 
