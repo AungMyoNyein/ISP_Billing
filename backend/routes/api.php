@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\AuthLogController;
 use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\CustomerController;
@@ -81,7 +80,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/routers/{router}', [RouterController::class, 'show']);
         Route::get('/routers/{router}/check', [RouterController::class, 'check']);
         Route::get('/sessions/online', [SessionController::class, 'index']);
-        Route::get('/sessions/auth-log', [AuthLogController::class, 'index']);
     });
     Route::middleware('permission:network.manage')->group(function () {
         Route::post('/routers', [RouterController::class, 'store']);

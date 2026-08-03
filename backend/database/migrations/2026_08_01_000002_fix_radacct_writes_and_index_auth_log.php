@@ -33,11 +33,15 @@ return new class extends Migration
         // 1. accounting writes that send an explicit NULL terminate cause
         $db->statement('ALTER TABLE radacct ALTER COLUMN acctterminatecause DROP NOT NULL');
 
-        // 2. the table FreeRADIUS 3.2 expects for NAS-reload detection
+        // 2. the table FreeRADIUS 3.2 expects for NAS-reload detection.
+        //    nasipaddress is VARCHAR(15) and not upstream's inet: the
+        //    Simultaneous-Use queries join it to radacct.nasipaddress with
+        //    USING(), which Postgres cannot do across the two types. See
+        //    2026_08_03_000001, which repairs databases created before this.
         if (! $schema->hasTable('nasreload')) {
             $db->statement('
                 CREATE TABLE nasreload (
-                    nasipaddress INET PRIMARY KEY,
+                    nasipaddress VARCHAR(15) PRIMARY KEY,
                     reloadtime TIMESTAMP WITH TIME ZONE NOT NULL
                 )
             ');

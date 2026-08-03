@@ -24,7 +24,6 @@ const nav = [
     label: "Network", icon: "network", children: [
       { label: "Routers", href: "/network/routers" },
       { label: "Online Sessions", href: "/network/sessions" },
-      { label: "Authentication Log", href: "/network/auth-log" },
     ],
   },
   {

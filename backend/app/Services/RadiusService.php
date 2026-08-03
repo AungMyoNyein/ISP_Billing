@@ -13,8 +13,6 @@ use App\Models\Radius\RadReply;
 use App\Models\Radius\RadUserGroup;
 use App\Models\Router;
 use App\Models\ServicePlan;
-use Carbon\Carbon;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -300,31 +298,10 @@ class RadiusService
     }
 
     /**
-     * Authentication log from radpostauth — one row per Access-Accept or
-     * Access-Reject, newest first. This is the only record of *failed*
-     * logins: a rejected user never reaches radacct.
-     *
-     * @param  array{search?: ?string, reply?: ?string, from?: ?string, to?: ?string}  $filters
-     * @return LengthAwarePaginator<int, RadPostAuth>
+     * Recent authentication attempts for one customer (accepts and rejects),
+     * from radpostauth — the only record of a *failed* login, since a
+     * rejected user never reaches radacct.
      */
-    public function authLog(array $filters = [], int $perPage = 50): LengthAwarePaginator
-    {
-        return RadPostAuth::query()
-            // Never select `pass`: for PAP it holds the submitted password.
-            ->select(['id', 'username', 'reply', 'authdate'])
-            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('username', 'ilike', '%'.$s.'%'))
-            ->when($filters['reply'] ?? null, fn ($q, $r) => $q->where('reply', $r))
-            // half-open range rather than whereDate(): whereDate casts the
-            // column to ::date, which makes radpostauth_authdate_index
-            // unusable and forces a sequential scan
-            ->when($filters['from'] ?? null, fn ($q, $d) => $q->where('authdate', '>=', Carbon::parse($d)->startOfDay()))
-            ->when($filters['to'] ?? null, fn ($q, $d) => $q->where('authdate', '<', Carbon::parse($d)->addDay()->startOfDay()))
-            ->orderByDesc('authdate')
-            ->orderByDesc('id')
-            ->paginate($perPage);
-    }
-
-    /** Recent authentication attempts for one customer (accepts and rejects). */
     public function recentAuthAttempts(string $username, int $limit = 15): Collection
     {
         return RadPostAuth::query()
