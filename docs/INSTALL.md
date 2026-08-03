@@ -236,3 +236,35 @@ cd backend && composer install --no-dev && php artisan migrate --force \
 systemctl restart isp-billing-api   # if using the installer's artisan-serve unit
 cd ../frontend && npm install && npm run build && systemctl restart isp-billing-ui
 ```
+
+## Uninstalling / reinstalling
+
+`./uninstall.sh` reverses `install.sh`: it removes the two systemd units,
+restores FreeRADIUS's `mods-available/sql` and `radiusd.conf` from the
+`.dist` backups the installer made, disables the sql module, drops the
+`isp_billing` and `radius` databases and their role, and deletes
+`/etc/logrotate.d/isp-billing`. Source code and git history are never
+touched; build artefacts only with `--purge-files`.
+
+It reads the database names from `backend/.env`, so it drops the databases
+this install actually used rather than the defaults.
+
+```bash
+sudo ./uninstall.sh --dry-run     # print the plan, change nothing
+sudo ./uninstall.sh               # prompts: type the database name to confirm
+sudo ./install.sh --no-seed       # reinstall clean, no demo data
+```
+
+Both databases are dumped to `uninstall-backup-<timestamp>/` before they are
+dropped (`--no-backup` skips it). Selective flags: `--keep-database`,
+`--keep-freeradius`, `--keep-env`, `--no-service`, `--no-logrotate`,
+`--purge-files`, `--yes`.
+
+> **Keep the old `backend/.env` if you plan to restore one of those dumps.**
+> A fresh install generates a new `APP_KEY`, and customer RADIUS passwords in
+> the dump were encrypted with the previous one — under a new key they read
+> back as null and those customers are skipped during provisioning.
+
+The scheduler cron entry is not installed by `install.sh`, so it is not
+removed either; the uninstaller prints it if it finds one still pointing at
+this checkout.
