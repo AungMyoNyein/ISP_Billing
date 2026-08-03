@@ -13,6 +13,7 @@ use App\Models\Radius\RadReply;
 use App\Models\Radius\RadUserGroup;
 use App\Models\Router;
 use App\Models\ServicePlan;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -259,6 +260,69 @@ class RadiusService
     public function isOnline(string $username): bool
     {
         return RadAcct::online()->where('username', $username)->exists();
+    }
+
+    /**
+     * Why a customer reads as online or not.
+     *
+     * "Offline" on its own is not something an operator can act on: a session
+     * whose NAS stopped sending interim updates is hidden by the freshness
+     * check and looks identical to one that genuinely disconnected — while
+     * the bandwidth chart beside it still fills up, because usage is read
+     * from the same rows without any freshness condition. Reporting whether a
+     * session is still open, and how long ago its accounting last arrived,
+     * separates "the customer left" from "this NAS is not sending
+     * Acct-Interim-Interval updates".
+     *
+     * @return array{online: bool, session_open: bool, last_activity: ?string, last_activity_age_seconds: ?int, stale_after_minutes: int}
+     */
+    public function presence(string $username): array
+    {
+        $staleMinutes = (int) config('services.radius.session_stale_minutes', 30);
+
+        $open = $this->lastActivity(
+            RadAcct::query()->where('username', $username)
+                ->whereNotNull('acctstarttime')->whereNull('acctstoptime'),
+            'COALESCE(acctupdatetime, acctstarttime)',
+        );
+
+        $any = $this->lastActivity(
+            RadAcct::query()->where('username', $username),
+            'COALESCE(acctstoptime, acctupdatetime, acctstarttime)',
+        );
+
+        $seen = $open ?? $any;
+
+        return [
+            'online' => $open !== null
+                && ($staleMinutes <= 0 || $open['age_seconds'] <= $staleMinutes * 60),
+            'session_open' => $open !== null,
+            'last_activity' => $seen['at'] ?? null,
+            'last_activity_age_seconds' => $seen['age_seconds'] ?? null,
+            'stale_after_minutes' => $staleMinutes,
+        ];
+    }
+
+    /**
+     * Newest value of $expression, and how old it is by the database's own
+     * clock — the timestamps are naive local time, so ageing them in PHP
+     * would be off by the server's UTC offset.
+     *
+     * @param  Builder<RadAcct>  $query
+     * @return array{at: string, age_seconds: int}|null
+     */
+    private function lastActivity($query, string $expression): ?array
+    {
+        $row = $query
+            ->selectRaw("MAX($expression) AS seen_at")
+            ->selectRaw("EXTRACT(EPOCH FROM (localtimestamp - MAX($expression))) AS age_seconds")
+            ->first();
+
+        if ($row?->seen_at === null) {
+            return null;
+        }
+
+        return ['at' => (string) $row->seen_at, 'age_seconds' => (int) $row->age_seconds];
     }
 
     /**

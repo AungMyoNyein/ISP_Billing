@@ -42,7 +42,20 @@ interval or live sessions will drop off the list. Set it to `0` to disable
 the freshness check and trust `acctstoptime` alone.
 
 Stale rows are hidden, not deleted, so accounting history and bandwidth
-totals are unaffected.
+totals are unaffected. That is why a customer can read **Offline** on the
+Bandwidth Usage tab while the chart beside it shows traffic: the chart reads
+the same rows with no freshness condition. The status tile distinguishes the
+two cases — **Idle** means the session is still open but its accounting has
+gone quiet (almost always a NAS not sending interim updates), **Offline**
+means no open session at all, and both report how long ago accounting last
+arrived.
+
+The comparison runs in the database (`localtimestamp`), not in PHP.
+`acctstarttime` and `acctupdatetime` are `timestamp without time zone` and
+FreeRADIUS writes them in the *database server's* local time, while Carbon's
+`now()` follows `app.timezone`. Binding the PHP clock compared Yangon-local
+values against a UTC threshold, quietly turning a 30-minute window into a
+seven-hour one.
 
 ### FreeRADIUS configuration
 

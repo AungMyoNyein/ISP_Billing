@@ -17,7 +17,17 @@ interface UsageSession {
   framedipaddress: string; callingstationid: string; nasipaddress: string;
 }
 interface UsageAuthAttempt { id: number; reply: string; authdate: string | null }
-interface Usage { daily: UsageDay[]; sessions: UsageSession[]; auth_log: UsageAuthAttempt[]; online: boolean }
+interface Presence {
+  online: boolean;
+  session_open: boolean;
+  last_activity: string | null;
+  last_activity_age_seconds: number | null;
+  stale_after_minutes: number;
+}
+interface Usage {
+  daily: UsageDay[]; sessions: UsageSession[]; auth_log: UsageAuthAttempt[];
+  online: boolean; presence?: Presence;
+}
 
 const TABS = ["Overview", "Bandwidth Usage", "Invoices"] as const;
 
@@ -260,7 +270,7 @@ function UsageTab({ usage, days, onDays, loading }: {
         </Card>
         <Card className="p-4 text-center">
           <p className="text-xs text-slate-500">Currently</p>
-          <p className="text-xl font-semibold">{usage.online ? <span className="text-emerald-600">Online</span> : <span className="text-slate-400">Offline</span>}</p>
+          <PresenceValue usage={usage} />
         </Card>
       </div>
 
@@ -335,6 +345,40 @@ function AuthReply({ reply }: { reply: string }) {
  * by a 2px gap in the surface colour rather than a border — a stroke round
  * each segment would be data-weight ink that isn't data.
  */
+/**
+ * "Offline" alone cannot be acted on. A session the NAS stopped sending
+ * interim updates for is hidden by the freshness check and looks exactly
+ * like one that disconnected — while the chart beside it keeps filling,
+ * because usage is read from the same rows with no freshness condition.
+ * Saying which, and how stale, is the difference between "the customer
+ * left" and "this router is not sending Acct-Interim-Interval updates".
+ */
+function PresenceValue({ usage }: { usage: Usage }) {
+  const p = usage.presence;
+
+  if (usage.online) return <p className="text-xl font-semibold text-emerald-600">Online</p>;
+
+  if (p?.session_open) {
+    return (
+      <>
+        <p className="text-xl font-semibold text-amber-600">Idle</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          session open, no accounting for {formatDuration(p.last_activity_age_seconds)}
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="text-xl font-semibold text-slate-400">Offline</p>
+      {p?.last_activity_age_seconds != null && (
+        <p className="mt-0.5 text-xs text-slate-500">last seen {formatDuration(p.last_activity_age_seconds)} ago</p>
+      )}
+    </>
+  );
+}
+
 function UsageChart({ daily }: { daily: UsageDay[] }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(...daily.map((d) => d.download_bytes + d.upload_bytes), 1);

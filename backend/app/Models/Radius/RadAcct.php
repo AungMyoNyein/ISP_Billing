@@ -8,8 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class RadAcct extends Model
 {
     protected $connection = 'radius';
+
     protected $table = 'radacct';
+
     protected $primaryKey = 'radacctid';
+
     public $timestamps = false;
 
     protected function casts(): array
@@ -40,9 +43,17 @@ class RadAcct extends Model
 
         $staleMinutes = (int) config('services.radius.session_stale_minutes', 30);
         if ($staleMinutes > 0) {
+            // localtimestamp, not a bound now(): these columns are `timestamp
+            // without time zone` and FreeRADIUS writes them in the database
+            // server's local time, while Carbon's now() follows app.timezone
+            // (UTC). Binding the PHP clock compared Yangon-local values against
+            // a UTC threshold and silently widened a 30-minute window to seven
+            // hours — sessions kept counting as online most of a day after
+            // their accounting stopped. Comparing inside the database keeps
+            // both sides on the same clock whatever either is set to.
             $query->whereRaw(
-                'COALESCE(acctupdatetime, acctstarttime) >= ?',
-                [now()->subMinutes($staleMinutes)],
+                "COALESCE(acctupdatetime, acctstarttime) >= localtimestamp - (? * interval '1 minute')",
+                [$staleMinutes],
             );
         }
 

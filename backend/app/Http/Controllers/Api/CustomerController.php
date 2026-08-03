@@ -107,12 +107,14 @@ class CustomerController extends Controller
     public function usage(Request $request, Customer $customer): JsonResponse
     {
         $days = min($request->integer('days', 30), 90);
+        $presence = $this->radius->presence($customer->username);
 
         return response()->json([
             'daily' => $this->radius->dailyUsage($customer->username, $days),
             'sessions' => $this->radius->recentSessions($customer->username),
             'auth_log' => $this->radius->recentAuthAttempts($customer->username),
-            'online' => $this->radius->isOnline($customer->username),
+            'presence' => $presence,
+            'online' => $presence['online'],
         ]);
     }
 
