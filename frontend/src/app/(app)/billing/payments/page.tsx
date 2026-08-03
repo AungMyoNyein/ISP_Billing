@@ -6,6 +6,7 @@ import { usePaginated } from "@/hooks/usePaginated";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { Button, Card, ErrorNote, PageHeader, Pagination, Table, inputBaseCls, inputCls } from "@/components/ui";
 import type { Payment } from "@/lib/types";
+import { DateInput } from "@/components/DateInput";
 
 export default function PaymentsPage() {
   const [searchInput, setSearchInput] = useState("");
@@ -35,8 +36,8 @@ export default function PaymentsPage() {
             <option value="mobile_money">Mobile Money</option>
             <option value="other">Other</option>
           </select>
-          <input className={`${inputBaseCls} w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <input className={`${inputBaseCls} w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DateInput className="w-40" value={from} onChange={setFrom} title="From date" />
+          <DateInput className="w-40" value={to} onChange={setTo} title="To date" />
         </div>
 
         <Table

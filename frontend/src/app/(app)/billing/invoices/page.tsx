@@ -8,6 +8,7 @@ import { usePaginated } from "@/hooks/usePaginated";
 import { formatDate, formatMoney } from "@/lib/format";
 import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Pagination, Table, inputBaseCls, inputCls } from "@/components/ui";
 import type { Invoice } from "@/lib/types";
+import { DateInput } from "@/components/DateInput";
 
 export default function InvoicesPage() {
   return (
@@ -48,8 +49,8 @@ function InvoicesInner() {
             <option value="suspended">Suspended</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <input className={`${inputBaseCls} w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} title="Billing date from" />
-          <input className={`${inputBaseCls} w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} title="Billing date to" />
+          <DateInput className="w-40" value={from} onChange={setFrom} title="Billing date from" />
+          <DateInput className="w-40" value={to} onChange={setTo} title="Billing date to" />
         </div>
 
         <Table

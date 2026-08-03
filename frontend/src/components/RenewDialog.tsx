@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Button, ErrorNote, Field, Modal, inputCls } from "@/components/ui";
+import { Button, ErrorNote, Field, Modal } from "@/components/ui";
+import { DateInput } from "@/components/DateInput";
 
 /**
  * Renewal confirmation with an optional hand-picked expiry date.
@@ -62,12 +63,7 @@ export function RenewDialog({ open, customerId, customerName, planName, validity
       </p>
 
       <Field label="New expiry date (optional)">
-        <input
-          type="date"
-          className={inputCls}
-          value={expiry}
-          onChange={(e) => setExpiry(e.target.value)}
-        />
+        <DateInput value={expiry} onChange={setExpiry} />
       </Field>
       <p className="mt-1.5 text-xs text-slate-500">
         {expiry

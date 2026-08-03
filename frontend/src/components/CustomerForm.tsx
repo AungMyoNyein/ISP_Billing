@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { Button, ErrorNote, Field, inputCls } from "@/components/ui";
 import type { Customer, Router, ServicePlan } from "@/lib/types";
+import { DateInput } from "@/components/DateInput";
 
 const STATUSES = ["pending", "active", "suspended", "expired", "disabled"];
 
@@ -131,7 +132,7 @@ export function CustomerForm({ customer, onSaved }: { customer?: Customer; onSav
           </select>
         </Field>
         <Field label="Expiry Date" error={err("expiry_date")}>
-          <input className={inputCls} type="date" value={form.expiry_date} onChange={(e) => set("expiry_date", e.target.value)} />
+          <DateInput value={form.expiry_date} onChange={(v) => set("expiry_date", v)} />
         </Field>
         <div className="md:col-span-2">
           <Field label="Notes" error={err("notes")}>

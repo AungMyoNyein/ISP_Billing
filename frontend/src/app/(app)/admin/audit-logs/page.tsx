@@ -5,6 +5,7 @@ import { usePaginated } from "@/hooks/usePaginated";
 import { formatDateTime } from "@/lib/format";
 import { Card, ErrorNote, PageHeader, Pagination, Table, inputBaseCls } from "@/components/ui";
 import type { AuditLog } from "@/lib/types";
+import { DateInput } from "@/components/DateInput";
 
 export default function AuditLogsPage() {
   const [action, setAction] = useState("");
@@ -20,8 +21,8 @@ export default function AuditLogsPage() {
       <Card>
         <div className="flex flex-wrap gap-3 border-b border-slate-200 p-4">
           <input className={`${inputBaseCls} w-56`} placeholder="Filter by action (e.g. login)" value={action} onChange={(e) => setAction(e.target.value)} />
-          <input className={`${inputBaseCls} w-auto`} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <input className={`${inputBaseCls} w-auto`} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DateInput className="w-40" value={from} onChange={setFrom} title="From date" />
+          <DateInput className="w-40" value={to} onChange={setTo} title="To date" />
         </div>
         <Table headers={["When", "User", "Action", "Entity", "Details", "IP"]} loading={loading} empty={data.length === 0}>
           {data.map((log) => (

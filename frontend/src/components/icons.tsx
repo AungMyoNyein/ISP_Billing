@@ -54,6 +54,7 @@ const paths: Record<string, React.ReactNode> = {
   chevron: <path d="M8 10l4 4 4-4" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  calendar: <path d="M8 3v3M16 3v3M4 9h16M5 5h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z" />,
 };
 
 export function Icon({ name, className = "h-4 w-4" }: { name: keyof typeof paths | string; className?: string }) {
