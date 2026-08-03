@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { formatBytes, formatDate, formatDateTime, formatDuration, formatMoney } from "@/lib/format";
 import { Badge, Button, Card, ErrorNote, Modal, PageHeader, Table } from "@/components/ui";
 import { CustomerForm } from "@/components/CustomerForm";
+import { RenewDialog } from "@/components/RenewDialog";
 import type { Customer, Invoice } from "@/lib/types";
 
 interface UsageDay { date: string; download_bytes: number; upload_bytes: number; sessions: number }
@@ -31,6 +32,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [renewOpen, setRenewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -70,19 +72,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
-  async function renew() {
-    if (!confirm("Generate a renewal invoice for this customer?")) return;
-    setBusy(true);
-    try {
-      await api(`/billing/renew/${id}`, { method: "POST" });
-      setInvoices([]);
-      setTab("Invoices");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Renewal failed");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function remove() {
     if (!confirm("Delete this customer? RADIUS access will be removed.")) return;
@@ -108,7 +97,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             {customer.online && <Badge value="online" />}
             <Badge value={customer.status} />
             <Button variant="secondary" onClick={() => setEditOpen(true)}>Edit</Button>
-            <Button variant="secondary" onClick={renew} disabled={busy}>Renew</Button>
+            <Button variant="secondary" onClick={() => setRenewOpen(true)} disabled={busy}>Renew</Button>
             {customer.status === "suspended" ? (
               <Button onClick={() => action("reconnect", "Reconnect this customer and re-enable RADIUS access?")} disabled={busy}>Reconnect</Button>
             ) : (
@@ -146,6 +135,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           onSaved={() => { setEditOpen(false); load(); }}
         />
       </Modal>
+
+      <RenewDialog
+        open={renewOpen}
+        customerId={customer.id}
+        customerName={customer.name}
+        planName={customer.service_plan?.name}
+        validityDays={customer.service_plan?.validity_days}
+        onClose={() => setRenewOpen(false)}
+        onDone={() => { setInvoices([]); setTab("Invoices"); load(); }}
+      />
     </div>
   );
 }

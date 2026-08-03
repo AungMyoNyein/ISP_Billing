@@ -14,9 +14,7 @@ use Illuminate\Http\Request;
  */
 class BillingController extends Controller
 {
-    public function __construct(private readonly BillingService $billing)
-    {
-    }
+    public function __construct(private readonly BillingService $billing) {}
 
     /** Customers due for renewal (expiring soon or already expired). */
     public function renewals(Request $request): JsonResponse
@@ -35,10 +33,19 @@ class BillingController extends Controller
         return response()->json($customers);
     }
 
-    /** Generate the renewal invoice for one customer. */
-    public function renew(Customer $customer): JsonResponse
+    /**
+     * Generate the renewal invoice for one customer.
+     *
+     * `expiry_date` is optional: given, it sets the new expiry by hand;
+     * omitted, the service plan's validity_days applies.
+     */
+    public function renew(Request $request, Customer $customer): JsonResponse
     {
-        $invoice = $this->billing->renew($customer);
+        $data = $request->validate([
+            'expiry_date' => ['nullable', 'date'],
+        ]);
+
+        $invoice = $this->billing->renew($customer, $data['expiry_date'] ?? null);
 
         return response()->json($invoice->load('customer', 'servicePlan'), 201);
     }
@@ -47,7 +54,7 @@ class BillingController extends Controller
     {
         $days = min($request->integer('days', 7), 60);
 
-        $customers = Customer::with('servicePlan:id,name,price')
+        $customers = Customer::with('servicePlan:id,name,price,validity_days')
             ->expiringWithin($days)
             ->filter($request->only(['search', 'dn_zone', 'service_plan_id']))
             ->orderBy('expiry_date')

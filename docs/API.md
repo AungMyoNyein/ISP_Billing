@@ -67,7 +67,7 @@ Delete fails with 422 while customers are assigned.
 | `POST /invoices/{id}/pay` | record payment `{ amount?, method?, reference?, paid_at?, notes? }` → customer active, expiry extended, RADIUS enabled |
 | `GET /payments`, `GET /payments/{id}`, `DELETE /payments/{id}` | filters: `search`, `method`, `customer_id`, `from`, `to` |
 | `GET /billing/renewals?days=7` | customers expiring within N days or already expired |
-| `POST /billing/renew/{customer}` | generate the next invoice |
+| `POST /billing/renew/{customer}` | generate the next invoice. Optional `expiry_date` sets the period end by hand — this becomes the customer's expiry once the invoice is paid; omitted, the plan's `validity_days` applies. Rejected with 422 if it falls before the period start |
 | `GET /billing/expiring?days=7` | active customers expiring within N days |
 | `GET /billing/suspended` | suspended customers |
 | `POST /billing/enforce` | run overdue/expiry enforcement now → `{ suspended, expired }` |

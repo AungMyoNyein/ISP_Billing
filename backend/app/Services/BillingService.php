@@ -22,9 +22,21 @@ class BillingService
         private readonly RadiusService $radius,
     ) {}
 
-    /** Generate the next invoice for a customer based on its plan. */
-    public function generateInvoice(Customer $customer, ?string $billingDate = null, ?int $dueDays = null): Invoice
-    {
+    /**
+     * Generate the next invoice for a customer based on its plan.
+     *
+     * $periodEnd sets the cover end date by hand — this becomes the
+     * customer's expiry_date once the invoice is paid, so it is how an
+     * operator grants a period the plan does not describe (a part month, a
+     * goodwill extension, an agreed date). Left null, the plan's
+     * validity_days applies as usual.
+     */
+    public function generateInvoice(
+        Customer $customer,
+        ?string $billingDate = null,
+        ?int $dueDays = null,
+        ?string $periodEnd = null,
+    ): Invoice {
         $customer->loadMissing('servicePlan');
         $plan = $customer->servicePlan;
         abort_if($plan === null, 422, 'Customer has no service plan assigned.');
@@ -35,6 +47,19 @@ class BillingService
             ? $customer->expiry_date->copy()->addDay()
             : $billing->copy();
 
+        $end = $periodEnd
+            ? now()->parse($periodEnd)->startOfDay()
+            : $periodStart->copy()->addDays($plan->validity_days);
+
+        // A period that ends before it starts would bill for cover the
+        // customer never gets, and on payment would move expiry_date
+        // backwards — straight into the suspension sweep.
+        abort_if(
+            $end->lt($periodStart->copy()->startOfDay()),
+            422,
+            'The expiry date must be on or after '.$periodStart->toDateString().', when this period starts.',
+        );
+
         return Invoice::create([
             'invoice_number' => Invoice::nextNumber(),
             'customer_id' => $customer->id,
@@ -44,7 +69,7 @@ class BillingService
             'due_date' => $billing->copy()->addDays($dueDays)->toDateString(),
             'status' => Invoice::STATUS_UNPAID,
             'period_start' => $periodStart->toDateString(),
-            'period_end' => $periodStart->copy()->addDays($plan->validity_days)->toDateString(),
+            'period_end' => $end->toDateString(),
         ]);
     }
 
@@ -92,12 +117,20 @@ class BillingService
         });
     }
 
-    /** Renew = generate the next invoice for the customer's plan. */
-    public function renew(Customer $customer): Invoice
+    /**
+     * Renew = generate the next invoice for the customer's plan.
+     *
+     * $expiryDate overrides the plan's validity for this renewal only; the
+     * plan itself is untouched. Recorded on the audit entry, since a
+     * hand-picked expiry is an operator decision worth being able to trace.
+     */
+    public function renew(Customer $customer, ?string $expiryDate = null): Invoice
     {
-        $invoice = $this->generateInvoice($customer);
+        $invoice = $this->generateInvoice($customer, periodEnd: $expiryDate);
         AuditLog::record('renewal_invoice_generated', $invoice, [
             'customer' => $customer->username,
+            'period_end' => $invoice->period_end?->toDateString(),
+            'expiry_set_manually' => $expiryDate !== null,
         ]);
 
         return $invoice;

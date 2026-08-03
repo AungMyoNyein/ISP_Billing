@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { usePaginated } from "@/hooks/usePaginated";
 import { formatDate, formatMoney } from "@/lib/format";
 import { Badge, Button, Card, ErrorNote, PageHeader, Pagination, Table, inputCls } from "@/components/ui";
+import { RenewDialog } from "@/components/RenewDialog";
 import type { Customer } from "@/lib/types";
 
 /**
@@ -27,18 +28,21 @@ export function CustomerBillingList({ title, subtitle, endpoint, showDays, actio
   });
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  // Renewal opens a dialog rather than a confirm(), so the operator can set
+  // the expiry date by hand; reconnect stays a plain confirmation.
+  const [renewing, setRenewing] = useState<Customer | null>(null);
 
   async function run(customer: Customer) {
-    const messages = {
-      renew: `Generate a renewal invoice for ${customer.name}?`,
-      reconnect: `Reconnect ${customer.name} and re-enable RADIUS access?`,
-    };
-    if (!action || !confirm(messages[action])) return;
+    if (!action) return;
+    if (action === "renew") {
+      setRenewing(customer);
+      return;
+    }
+    if (!confirm(`Reconnect ${customer.name} and re-enable RADIUS access?`)) return;
     setBusyId(customer.id);
     setActionError(null);
     try {
-      if (action === "renew") await api(`/billing/renew/${customer.id}`, { method: "POST" });
-      else await api(`/customers/${customer.id}/reconnect`, { method: "POST" });
+      await api(`/customers/${customer.id}/reconnect`, { method: "POST" });
       reload();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Action failed");
@@ -94,6 +98,16 @@ export function CustomerBillingList({ title, subtitle, endpoint, showDays, actio
         </Table>
         <Pagination page={page} lastPage={lastPage} total={total} onPage={setPage} />
       </Card>
+
+      <RenewDialog
+        open={renewing !== null}
+        customerId={renewing?.id ?? null}
+        customerName={renewing?.name}
+        planName={renewing?.service_plan?.name}
+        validityDays={renewing?.service_plan?.validity_days}
+        onClose={() => setRenewing(null)}
+        onDone={reload}
+      />
     </div>
   );
 }
