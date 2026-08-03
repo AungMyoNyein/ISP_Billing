@@ -57,17 +57,49 @@ FreeRADIUS writes them in the *database server's* local time, while Carbon's
 values against a UTC threshold, quietly turning a 30-minute window into a
 seven-hour one.
 
+### Whose clock stamps accounting
+
+The freshness test above is only as good as the timestamps it compares, and
+by default those come from the **NAS**, not this server: FreeRADIUS bases
+`AcctStartTime`/`AcctUpdateTime` on each request's `Event-Timestamp`. A BRAS
+with an unsynchronised clock therefore writes rows dated hours or days out,
+they fall outside the window, and every session reads Offline while
+accounting is in fact being written perfectly. Nothing in the app can detect
+this — the rows look normal, just old.
+
+So the installer distrusts the NAS clock. In
+`mods-config/sql/main/postgresql/queries.conf`:
+
+```
+event_timestamp_epoch = "%l"                                  # this server's receive time
+#event_timestamp_epoch = "%{%{integer:Event-Timestamp}:-%l}"  # stock: the NAS's clock
+```
+
+Fix NTP on the NAS as well. `%l` keeps this application correct, but it masks
+a wrong clock rather than correcting it, and anything else reading those
+timestamps — the NAS's own logs, another RADIUS consumer — is still wrong.
+
+When "nobody is online" is reported, check the clocks before suspecting the
+app:
+
+```sql
+SELECT nasipaddress, count(*), now() - max(COALESCE(acctupdatetime, acctstarttime)) AS behind
+FROM radacct WHERE acctstoptime IS NULL GROUP BY 1;
+```
+
 ### FreeRADIUS configuration
 
 > **Automatic:** when FreeRADIUS is installed on the same machine
 > (`sudo ./install-deps.sh --with-freeradius`), `./install.sh` performs
-> steps 1–3 below itself: it writes `mods-available/sql` with the
+> steps 1–4 below itself: it writes `mods-available/sql` with the
 > installer's DB credentials (the distro original is kept as
 > `sql.dist`), enables the module, activates `sql` in the
-> `authorize`/`accounting`/`session` sections of the default site and
-> restarts the service. Post-auth results are logged to `radpostauth`.
-> Pass `--no-freeradius` to skip this, e.g. when FreeRADIUS runs on a
-> different host — then follow the manual steps below there.
+> `authorize`/`accounting`/`session` sections of the default site, points
+> `event_timestamp_epoch` at this server's clock (original kept as
+> `queries.conf.dist`) and restarts the service. Post-auth results are
+> logged to `radpostauth`. Pass `--no-freeradius` to skip this, e.g. when
+> FreeRADIUS runs on a different host — then follow the manual steps below
+> there.
 
 1. Enable the SQL module:
 
@@ -94,6 +126,11 @@ seven-hour one.
    `authorize`, `accounting` and `session` sections, and enable
    interim accounting updates on the NAS so bandwidth graphs stay
    current.
+
+4. In `mods-config/sql/main/<dialect>/queries.conf`, uncomment
+   `event_timestamp_epoch = "%l"` and comment out the
+   `Event-Timestamp` line below it, so accounting is stamped with this
+   server's clock — see *Whose clock stamps accounting* above.
 
 After a restart, FreeRADIUS authenticates PPPoE users created in the
 CRM, rejects suspended customers, and writes accounting that the UI

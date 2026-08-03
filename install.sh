@@ -281,6 +281,29 @@ EOF
     's/^([[:space:]]*)reject_delay[[:space:]]*=[[:space:]]*[0-9.]+[[:space:]]*$/\1reject_delay = 0/' \
     "$raddb/radiusd.conf"
 
+  # Stamp accounting rows with this server's clock, not the NAS's. By default
+  # every AcctStartTime/AcctUpdateTime comes from the request's
+  # Event-Timestamp, so a BRAS with a wrong clock writes rows dated days out —
+  # and the app's "online" test (acctupdatetime within RADIUS_SESSION_STALE_
+  # MINUTES of now) then reports zero sessions no matter how healthy the link
+  # is. A slow NAS clock is a common failure and nothing here can correct it,
+  # so distrust Event-Timestamp: "%l" is the time this server received the
+  # packet. Fix the NAS's NTP too — other consumers of those timestamps are
+  # still wrong. Both seds are no-ops once applied, so reinstalls are safe.
+  local qconf="$raddb/mods-config/sql/main/postgresql/queries.conf"
+  if [ -f "$qconf" ]; then
+    [ -f "$qconf.dist" ] || as_root cp -p "$qconf" "$qconf.dist"
+    as_root sed -i -E \
+      -e 's/^#[[:space:]]*(event_timestamp_epoch[[:space:]]*=[[:space:]]*"%l")[[:space:]]*$/\1/' \
+      -e 's/^([[:space:]]*event_timestamp_epoch[[:space:]]*=[[:space:]]*"%\{.*)$/#\1/' \
+      "$qconf"
+    if as_root grep -qE '^event_timestamp_epoch[[:space:]]*=[[:space:]]*"%l"' "$qconf"; then
+      ok "Accounting timestamps taken from the RADIUS server clock"
+    else
+      warn "Could not set event_timestamp_epoch in $qconf — accounting will trust the NAS clock (see docs/INTEGRATIONS.md)"
+    fi
+  fi
+
   local bin="" b
   for b in /usr/sbin/radiusd /usr/sbin/freeradius; do
     [ -x "$b" ] && { bin=$b; break; }

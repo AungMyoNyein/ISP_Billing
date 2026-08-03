@@ -214,6 +214,12 @@ revert_freeradius() {
     did "Restored radiusd.conf from radiusd.conf.dist (reject_delay back to the distro value)"
   fi
 
+  local qconf="$raddb/mods-config/sql/main/postgresql/queries.conf"
+  if [ -f "$qconf.dist" ]; then
+    act mv -f "$qconf.dist" "$qconf"
+    did "Restored queries.conf from queries.conf.dist (accounting timestamps back to the NAS clock)"
+  fi
+
   # The distro ships sql disabled; install.sh created this symlink.
   if [ -L "$raddb/mods-enabled/sql" ]; then
     act rm -f "$raddb/mods-enabled/sql"
