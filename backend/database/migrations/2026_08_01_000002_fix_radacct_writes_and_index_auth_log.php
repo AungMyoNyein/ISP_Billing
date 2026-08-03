@@ -41,7 +41,7 @@ return new class extends Migration
         if (! $schema->hasTable('nasreload')) {
             $db->statement('
                 CREATE TABLE nasreload (
-                    nasipaddress VARCHAR(15) PRIMARY KEY,
+                    nasipaddress VARCHAR(45) PRIMARY KEY,
                     reloadtime TIMESTAMP WITH TIME ZONE NOT NULL
                 )
             ');

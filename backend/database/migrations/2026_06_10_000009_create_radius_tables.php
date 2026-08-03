@@ -75,7 +75,10 @@ return new class extends Migration
                 $table->string('acctuniqueid', 32)->default('')->unique();
                 $table->string('username', 64)->default('')->index();
                 $table->string('realm', 64)->nullable();
-                $table->string('nasipaddress', 15)->default('')->index();
+                // 45, not 15: an IPv4-width column rejects any IPv6 address
+                // the NAS sends, and a rejected accounting write is invisible
+                // except in radius.log. See 2026_08_03_000002.
+                $table->string('nasipaddress', 45)->default('')->index();
                 $table->string('nasportid', 32)->nullable();
                 $table->string('nasporttype', 32)->nullable();
                 $table->timestamp('acctstarttime')->nullable()->index();
@@ -93,7 +96,7 @@ return new class extends Migration
                 $table->string('acctterminatecause', 32)->default('');
                 $table->string('servicetype', 32)->nullable();
                 $table->string('framedprotocol', 32)->nullable();
-                $table->string('framedipaddress', 15)->default('')->index();
+                $table->string('framedipaddress', 45)->default('')->index();
                 $table->string('framedipv6address', 45)->nullable();
                 $table->string('framedipv6prefix', 45)->nullable();
                 $table->string('framedinterfaceid', 44)->nullable();
