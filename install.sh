@@ -7,7 +7,8 @@
 #
 # Usage:
 #   ./install.sh                 # full install with prompts/defaults
-#   ./install.sh --no-seed       # skip demo data (production)
+#   ./install.sh --demo          # also load the demo fixture (never on production)
+#   ./install.sh --no-seed       # skip the baseline seed entirely
 #   ./install.sh --backend-only  # backend + databases only
 #   ./install.sh --frontend-only # frontend only
 #   ./install.sh --no-freeradius # skip FreeRADIUS sql module auto-config
@@ -30,6 +31,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SEED=1
+DEMO=0
 DO_BACKEND=1
 DO_FRONTEND=1
 DO_RADIUS_CONF=1
@@ -39,12 +41,13 @@ DO_LOGROTATE=1
 for arg in "$@"; do
   case "$arg" in
     --no-seed) SEED=0 ;;
+    --demo) DEMO=1 ;;
     --backend-only) DO_FRONTEND=0 ;;
     --frontend-only) DO_BACKEND=0 ;;
     --no-freeradius) DO_RADIUS_CONF=0 ;;
     --no-service) DO_SERVICE=0 ;;
     --no-logrotate) DO_LOGROTATE=0 ;;
-    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,29p' "$0"; exit 0 ;;
     *) echo "Unknown option: $arg (see --help)"; exit 1 ;;
   esac
 done
@@ -167,9 +170,16 @@ install_backend() {
   fi
 
   php artisan migrate --force
+  # The baseline seed is roles, settings, the plan catalogue and one admin —
+  # every write is create-if-absent, so this is safe on a live database and a
+  # re-install never resets a changed password or the company letterhead.
   if [ "$SEED" = 1 ]; then
     php artisan db:seed --force
-    ok "Demo data seeded (admin@isp.local / admin12345 — change this!)"
+    ok "Baseline data seeded (roles, settings, service plans, admin@isp.local)"
+  fi
+  if [ "$DEMO" = 1 ]; then
+    php artisan db:seed --class=DemoSeeder --force
+    ok "Demo fixture loaded — sample customers are provisioned into RADIUS"
   fi
   ok "Backend installed"
 }
@@ -537,7 +547,8 @@ cat <<EOF
  Required cron entry (billing enforcement):
    * * * * * $(command -v php) $ROOT/backend/artisan schedule:run >/dev/null 2>>$ROOT/backend/storage/logs/scheduler.log
 
- Default login (if seeded): admin@isp.local / admin12345
+ Default login (if seeded): admin@isp.local / admin12345 — change it
+ Demo fixture (never on production): php artisan db:seed --class=DemoSeeder
  Production deployment guide: docs/INSTALL.md
 ──────────────────────────────────────────────────────────────
 EOF

@@ -25,8 +25,9 @@ apt install php8.3-cli php8.3-pgsql php8.3-xml php8.3-curl php8.3-mbstring \
 ## Option A — automated install
 
 ```bash
-./install.sh                 # everything, with demo data
-./install.sh --no-seed       # production: no demo customers
+./install.sh                 # everything (baseline data only — safe on production)
+./install.sh --demo          # also load the demo fixture (never on production)
+./install.sh --no-seed       # skip the baseline seed entirely
 ./install.sh --backend-only  # API + databases only
 ./install.sh --frontend-only # UI only
 ./install.sh --no-logrotate  # skip /etc/logrotate.d/isp-billing
@@ -38,7 +39,8 @@ The script:
 2. creates the PostgreSQL role and the `isp_billing` + `radius` databases
    (idempotent — safe to re-run);
 3. installs backend dependencies, writes `backend/.env` with a generated
-   DB password and app key, runs migrations (and seeders unless `--no-seed`);
+   DB password and app key, runs migrations (and the baseline seed unless
+   `--no-seed`);
 4. installs frontend dependencies (including a workaround for npm
    skipping the Tailwind native binary on older npm versions), writes
    `frontend/.env.local`, and builds the production bundle;
@@ -70,7 +72,7 @@ Override defaults via env vars, e.g.:
 
 ```bash
 DB_HOST=10.0.0.5 DB_PASS=secret \
-FRONTEND_URL=https://billing.example.com ./install.sh --no-seed
+FRONTEND_URL=https://billing.example.com ./install.sh
 ```
 
 The frontend calls the API at the relative `/api` path by default —
@@ -82,6 +84,24 @@ the backend directly.
 If the script cannot reach PostgreSQL as a superuser it falls back to
 `psql -U postgres` over TCP; set `PGSUPER_USER` / `PGSUPER_PASS` if your
 superuser differs.
+
+### What gets seeded
+
+`db:seed` loads **baseline data only**: the four roles, default settings, the
+service plan catalogue, and one `admin@isp.local` account. Every write is
+create-if-absent, so re-running it — which a re-install does — never resets a
+changed password, overwrites the company letterhead, or rolls back
+permissions edited in the Roles screen. It is safe on a live database.
+
+Demo routers, the extra manager/operator accounts and 25 sample customers
+live in a separate fixture that is never loaded automatically:
+
+```bash
+php artisan db:seed --class=DemoSeeder    # or ./install.sh --demo
+```
+
+Do not run it on production — it provisions every sample customer into
+FreeRADIUS.
 
 ## Option B — manual install
 
@@ -105,7 +125,8 @@ cp .env.example .env
 # edit .env: DB_*, RADIUS_DB_*, FRONTEND_URL  (see docs/CONFIGURATION.md)
 php artisan key:generate
 php artisan migrate --force
-php artisan db:seed --force      # optional demo data
+php artisan db:seed --force                  # baseline: roles, settings, plans, admin
+php artisan db:seed --class=DemoSeeder --force   # optional demo fixture
 php artisan serve                # dev server on :8000
 ```
 
@@ -218,7 +239,7 @@ which also removes the need for CORS).
 
 ### Hardening checklist
 
-- [ ] Change all seeded passwords (or install with `--no-seed`)
+- [ ] Change the seeded `admin@isp.local` password
 - [ ] `APP_DEBUG=false`, unique `APP_KEY`
 - [ ] TLS on both API and UI
 - [ ] PostgreSQL only reachable from the app host
@@ -252,7 +273,7 @@ this install actually used rather than the defaults.
 ```bash
 sudo ./uninstall.sh --dry-run     # print the plan, change nothing
 sudo ./uninstall.sh               # prompts: type the database name to confirm
-sudo ./install.sh --no-seed       # reinstall clean, no demo data
+sudo ./install.sh                 # reinstall clean (baseline data only)
 ```
 
 Both databases are dumped to `uninstall-backup-<timestamp>/` before they are
