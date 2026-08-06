@@ -47,6 +47,7 @@ Production-ready ISP billing & RADIUS management system.
 - **Billing Menu** — Invoices, Payments, Renewals, Expiring Customers, Suspended Customers — all with filters.
 - **Invoices** — invoice number, customer, plan, amount, billing date, due date, status (paid/unpaid/suspended/cancelled), Mark Paid flow.
 - **Network** — NAS routers (CRUD, synced to the FreeRADIUS `nas` table, RADIUS session kick) and Online Sessions (live radacct view, 15s refresh).
+- **Support Tickets** — customer issues logged by staff: subject, description, category, priority, status workflow (open → in progress → pending customer → resolved → closed), assignment to a staff user, threaded replies with staff-only internal notes, and a resolution note. Filterable by status/priority/category/assignee/date; also reachable from a customer's **Tickets tab**.
 - **Reports** — monthly revenue, customer growth, plan distribution, receivables.
 - **Administration** — Users, Roles & Permissions (granular RBAC), System Settings, Audit Logs, Backup & Restore (pg_dump/pg_restore).
 - **Status Page** — NAS routers with online sessions and last accounting activity, FreeRADIUS status, database status, SmartOLT status.

@@ -35,6 +35,15 @@ const badgeTones: Record<string, string> = {
   pending: "bg-amber-500",
   unpaid: "bg-amber-500",
   expired: "bg-orange-500",
+  // support tickets — statuses, then the two priorities worth colouring
+  // (low/normal fall through to neutral, which is the point of them)
+  open: "bg-amber-500",
+  "in progress": "bg-blue-500",
+  "pending customer": "bg-violet-500",
+  resolved: "bg-emerald-500",
+  closed: "bg-slate-300",
+  urgent: "bg-rose-500",
+  high: "bg-orange-500",
   suspended: "bg-rose-500",
   offline: "bg-rose-500",
   "ping fail": "bg-rose-500",

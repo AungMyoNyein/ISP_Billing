@@ -81,6 +81,18 @@ Delete fails with 422 while customers are assigned.
 | `GET /sessions/online?search=` | live sessions from radacct, decorated with billing customer info |
 | `GET /status` | status page payload (NAS routers from radacct, FreeRADIUS, databases, SmartOLT) |
 
+## Support tickets — `support.view` / `support.manage`
+
+| Method/Path | Notes |
+|---|---|
+| `GET /tickets` | filters: `search` (ticket #, subject, description, customer), `status`, `priority`, `category`, `customer_id`, `assigned_to`, `from`, `to`. `status=unresolved` means the whole unfinished queue (open + in_progress + pending_customer); `assigned_to=unassigned` means nobody holds it. Ordered unfinished-first, then urgent → low, then newest |
+| `GET /tickets/filter-options` | `statuses`, `priorities`, `categories`, `agents` (active users), `counts` per status |
+| `POST /tickets` | `{ customer_id, subject, description, category?, priority?, assigned_to? }` — `ticket_number` (`TKT-YYYYMM-NNNNN`) and `opened_by` are assigned server-side |
+| `GET /tickets/{id}` | ticket with customer, assignee, opener and the full reply thread |
+| `PUT /tickets/{id}` | any subset of the above plus `status`, `resolution`. Moving into resolved/closed stamps `resolved_at`/`closed_at`; moving back out clears them |
+| `DELETE /tickets/{id}` | soft delete |
+| `POST /tickets/{id}/replies` | `{ body, is_internal?, status? }` — `is_internal` marks a staff-only note; the optional `status` resolves the ticket in the same request as the reply |
+
 ## Reports — `reports.view`
 
 `GET /reports/revenue?months=12` · `GET /reports/customer-growth?months=12`

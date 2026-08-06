@@ -37,6 +37,13 @@ export default function DashboardPage() {
         <StatCard href="/billing/suspended" label="Suspended Customers" value={stats?.suspended_customers ?? "…"} accent="text-rose-600" hint="Auth blocked" />
         <StatCard href="/customers?status=expired" label="Expired Customers" value={stats?.expired_customers ?? "…"} accent="text-orange-600" hint="Past validity" />
         <StatCard href="/billing/expiring" label="Expire in 7 Days" value={stats?.expiring_in_7_days ?? "…"} accent="text-amber-600" hint="Renewal due soon" />
+        <StatCard
+          href="/support/tickets?status=unresolved"
+          label="Open Tickets"
+          value={stats?.open_tickets ?? "…"}
+          accent={stats?.urgent_tickets ? "text-rose-600" : "text-slate-900"}
+          hint={stats?.urgent_tickets ? `${stats.urgent_tickets} urgent` : "Support queue"}
+        />
         <StatCard label="New Customers This Month" value={stats?.new_customers_this_month ?? "…"} hint="Signed up since the 1st" />
         <StatCard label="Revenue This Month" value={stats ? formatMoney(stats.revenue_this_month) : "…"} accent="text-emerald-700" hint={`${stats?.unpaid_invoices ?? 0} unpaid invoice(s)`} />
       </div>

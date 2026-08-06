@@ -108,6 +108,50 @@ export interface Payment {
   receiver?: { id: number; name: string } | null;
 }
 
+export type TicketStatus = "open" | "in_progress" | "pending_customer" | "resolved" | "closed";
+export type TicketPriority = "low" | "normal" | "high" | "urgent";
+
+export interface TicketReply {
+  id: number;
+  support_ticket_id: number;
+  body: string;
+  /** staff-to-staff working note — never shown to the customer */
+  is_internal: boolean;
+  created_at: string;
+  user?: { id: number; name: string } | null;
+}
+
+export interface SupportTicket {
+  id: number;
+  ticket_number: string;
+  customer_id: number;
+  subject: string;
+  description: string;
+  category: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  assigned_to: number | null;
+  opened_by: number | null;
+  resolution: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  customer?: Customer | null;
+  assignee?: { id: number; name: string } | null;
+  opener?: { id: number; name: string } | null;
+  replies?: TicketReply[];
+  replies_count?: number;
+}
+
+export interface TicketOptions {
+  statuses: TicketStatus[];
+  priorities: TicketPriority[];
+  categories: string[];
+  agents: Array<{ id: number; name: string }>;
+  counts: Partial<Record<TicketStatus, number>>;
+}
+
 export interface DashboardStats {
   total_customers: number;
   active_customers: number;
@@ -118,6 +162,8 @@ export interface DashboardStats {
   new_customers_this_month: number;
   unpaid_invoices: number;
   revenue_this_month: number;
+  open_tickets: number;
+  urgent_tickets: number;
   radius_healthy: boolean;
 }
 

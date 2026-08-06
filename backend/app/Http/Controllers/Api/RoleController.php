@@ -17,6 +17,7 @@ class RoleController extends Controller
         'plans.view', 'plans.manage',
         'billing.view', 'billing.manage',
         'network.view', 'network.manage',
+        'support.view', 'support.manage',
         'reports.view',
         'admin.users', 'admin.roles', 'admin.settings', 'admin.audit', 'admin.backup',
     ];

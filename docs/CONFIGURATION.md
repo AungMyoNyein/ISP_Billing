@@ -77,6 +77,8 @@ A role holds a list of permission keys; `*` grants everything.
 | `billing.manage`   | Create/edit invoices, record payments, renew, run enforcement |
 | `network.view`     | Routers (read), online sessions, status page        |
 | `network.manage`   | Router CRUD, disconnect PPPoE users                 |
+| `support.view`     | Read support tickets and their reply threads        |
+| `support.manage`   | Open/edit/delete tickets, post replies and internal notes, change status/priority/assignee |
 | `reports.view`     | All reports                                         |
 | `admin.users` / `admin.roles` / `admin.settings` / `admin.audit` / `admin.backup` | The respective Administration screens |
 

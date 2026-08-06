@@ -4,11 +4,12 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { formatBytes, formatDate, formatDateTime, formatDuration, formatMoney } from "@/lib/format";
+import { formatBytes, formatDate, formatDateTime, formatDuration, formatMoney, humanize } from "@/lib/format";
 import { Badge, Button, Card, ErrorNote, Modal, PageHeader, Table } from "@/components/ui";
 import { CustomerForm } from "@/components/CustomerForm";
 import { RenewDialog } from "@/components/RenewDialog";
-import type { Customer, Invoice } from "@/lib/types";
+import { TicketForm } from "@/components/TicketForm";
+import type { Customer, Invoice, SupportTicket } from "@/lib/types";
 
 interface UsageDay { date: string; download_bytes: number; upload_bytes: number; sessions: number }
 interface UsageSession {
@@ -29,7 +30,7 @@ interface Usage {
   online: boolean; presence?: Presence;
 }
 
-const TABS = ["Overview", "Bandwidth Usage", "Invoices"] as const;
+const TABS = ["Overview", "Bandwidth Usage", "Invoices", "Tickets"] as const;
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -40,9 +41,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [usageDays, setUsageDays] = useState(30);
   const [usageLoading, setUsageLoading] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
+  const [ticketOpen, setTicketOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -68,6 +71,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         .then((r) => setInvoices(r.data)).catch((e) => setError(e.message));
     }
   }, [tab, id, invoices.length]);
+
+  // null means "not fetched yet" — an empty array is a real answer here, and
+  // testing length like the invoices tab does would refetch on every render
+  useEffect(() => {
+    if (tab === "Tickets" && tickets === null) {
+      api<{ data: SupportTicket[] }>("/tickets", { params: { customer_id: id, per_page: 50 } })
+        .then((r) => setTickets(r.data)).catch((e) => setError(e.message));
+    }
+  }, [tab, id, tickets]);
 
   async function action(path: string, confirmMsg: string) {
     if (!confirm(confirmMsg)) return;
@@ -138,11 +150,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         <UsageTab usage={usage} days={usageDays} onDays={setUsageDays} loading={usageLoading} />
       )}
       {tab === "Invoices" && <InvoicesTab invoices={invoices} />}
+      {tab === "Tickets" && <TicketsTab tickets={tickets} onNew={() => setTicketOpen(true)} />}
 
       <Modal title="Edit Customer" open={editOpen} onClose={() => setEditOpen(false)} wide>
         <CustomerForm
           customer={customer}
           onSaved={() => { setEditOpen(false); load(); }}
+        />
+      </Modal>
+
+      <Modal title="New Support Ticket" open={ticketOpen} onClose={() => setTicketOpen(false)} wide>
+        <TicketForm
+          customer={customer}
+          onSaved={() => { setTicketOpen(false); setTickets(null); setTab("Tickets"); }}
         />
       </Modal>
 
@@ -508,6 +528,36 @@ function UsageTable({ daily }: { daily: UsageDay[] }) {
         ))}
       </Table>
     </div>
+  );
+}
+
+function TicketsTab({ tickets, onNew }: { tickets: SupportTicket[] | null; onNew: () => void }) {
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <p className="text-sm text-slate-500">Support issues raised for this customer</p>
+        <Button onClick={onNew}>+ New Ticket</Button>
+      </div>
+      <Table
+        headers={["Ticket #", "Subject", "Category", "Priority", "Status", "Assigned To", "Opened"]}
+        loading={tickets === null}
+        empty={tickets?.length === 0}
+      >
+        {(tickets ?? []).map((t) => (
+          <tr key={t.id} className="hover:bg-slate-50">
+            <td className="px-4 py-3 font-medium whitespace-nowrap text-blue-700">
+              <Link href={`/support/tickets/${t.id}`}>{t.ticket_number}</Link>
+            </td>
+            <td className="px-4 py-3"><span className="block max-w-xs truncate">{t.subject}</span></td>
+            <td className="px-4 py-3 capitalize">{humanize(t.category)}</td>
+            <td className="px-4 py-3"><Badge value={t.priority} /></td>
+            <td className="px-4 py-3"><Badge value={humanize(t.status)} /></td>
+            <td className="px-4 py-3">{t.assignee?.name ?? <span className="text-slate-400">Unassigned</span>}</td>
+            <td className="px-4 py-3 whitespace-nowrap">{formatDate(t.created_at)}</td>
+          </tr>
+        ))}
+      </Table>
+    </Card>
   );
 }
 

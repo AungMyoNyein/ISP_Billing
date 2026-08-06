@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ServicePlanController;
 use App\Http\Controllers\Api\SessionController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StatusController;
+use App\Http\Controllers\Api\SupportTicketController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -86,6 +87,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/routers/{router}', [RouterController::class, 'update']);
         Route::delete('/routers/{router}', [RouterController::class, 'destroy']);
         Route::post('/routers/{router}/disconnect-user', [RouterController::class, 'disconnectUser']);
+    });
+
+    // Support — customer issue tickets
+    Route::middleware('permission:support.view')->group(function () {
+        Route::get('/tickets', [SupportTicketController::class, 'index']);
+        Route::get('/tickets/filter-options', [SupportTicketController::class, 'filterOptions']);
+        Route::get('/tickets/{supportTicket}', [SupportTicketController::class, 'show']);
+    });
+    Route::middleware('permission:support.manage')->group(function () {
+        Route::post('/tickets', [SupportTicketController::class, 'store']);
+        Route::put('/tickets/{supportTicket}', [SupportTicketController::class, 'update']);
+        Route::delete('/tickets/{supportTicket}', [SupportTicketController::class, 'destroy']);
+        Route::post('/tickets/{supportTicket}/replies', [SupportTicketController::class, 'reply']);
     });
 
     // Reports

@@ -51,6 +51,11 @@ const paths: Record<string, React.ReactNode> = {
       <path d="M3 12h4l2.5-6 4 12 2.5-6h5" />
     </>
   ),
+  support: (
+    <>
+      <path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.8-.9L3 20.5l1.5-4.4A8.38 8.38 0 0 1 3.6 12a8.38 8.38 0 0 1 8.4-9 8.38 8.38 0 0 1 9 8.5z" />
+    </>
+  ),
   chevron: <path d="M8 10l4 4 4-4" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,

@@ -42,16 +42,23 @@ class DatabaseSeeder extends Seeder
             'description' => 'Manage customers, plans and billing',
             'permissions' => [
                 'customers.view', 'customers.manage', 'plans.view', 'plans.manage',
-                'billing.view', 'billing.manage', 'network.view', 'reports.view',
+                'billing.view', 'billing.manage', 'network.view',
+                'support.view', 'support.manage', 'reports.view',
             ],
         ]);
         Role::firstOrCreate(['name' => 'Operator'], [
-            'description' => 'Day-to-day billing entry',
-            'permissions' => ['customers.view', 'billing.view', 'billing.manage', 'network.view'],
+            'description' => 'Day-to-day billing entry and customer support',
+            'permissions' => [
+                'customers.view', 'billing.view', 'billing.manage', 'network.view',
+                'support.view', 'support.manage',
+            ],
         ]);
         Role::firstOrCreate(['name' => 'Viewer'], [
             'description' => 'Read-only access',
-            'permissions' => ['customers.view', 'plans.view', 'billing.view', 'network.view', 'reports.view'],
+            'permissions' => [
+                'customers.view', 'plans.view', 'billing.view', 'network.view',
+                'support.view', 'reports.view',
+            ],
         ]);
 
         // ---- Administrator ------------------------------------------

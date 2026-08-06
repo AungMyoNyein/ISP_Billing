@@ -92,6 +92,11 @@ class Customer extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
     public function scopeStatus(Builder $query, string $status): Builder
     {
         return $query->where('status', $status);

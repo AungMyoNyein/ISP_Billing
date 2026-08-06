@@ -20,6 +20,7 @@ const nav = [
       { label: "Suspended Customers", href: "/billing/suspended" },
     ],
   },
+  { label: "Support Tickets", href: "/support/tickets", icon: "support" },
   {
     label: "Network", icon: "network", children: [
       { label: "Routers", href: "/network/routers" },

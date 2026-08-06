@@ -46,6 +46,16 @@ export function formatDuration(seconds?: number | null): string {
   return `${m}m`;
 }
 
+/**
+ * Turn an API enum into something readable — "in_progress" → "in progress".
+ * Capitalisation is left to CSS so the value can also key the Badge tones,
+ * which are matched on the humanised string.
+ */
+export function humanize(value?: string | null): string {
+  if (!value) return "—";
+  return value.replace(/_/g, " ");
+}
+
 export function speedLabel(kbps: number): string {
   return kbps >= 1024 ? `${(kbps / 1024).toFixed(kbps % 1024 === 0 ? 0 : 1)} Mbps` : `${kbps} kbps`;
 }
