@@ -116,16 +116,23 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         subtitle={`${customer.customer_code} · ${customer.username}`}
         actions={
           <>
+            {customer.deleted_at && <Badge value="deleted" />}
             {customer.online && <Badge value="online" />}
             <Badge value={customer.status} />
-            <Button variant="secondary" onClick={() => setEditOpen(true)}>Edit</Button>
-            <Button variant="secondary" onClick={() => setRenewOpen(true)} disabled={busy}>Renew</Button>
-            {customer.status === "suspended" ? (
-              <Button onClick={() => action("reconnect", "Reconnect this customer and re-enable RADIUS access?")} disabled={busy}>Reconnect</Button>
+            {customer.deleted_at ? (
+              <Button onClick={() => action("restore", "Restore this customer and re-provision RADIUS access?")} disabled={busy}>Restore</Button>
             ) : (
-              <Button variant="danger" onClick={() => action("suspend", "Suspend this customer and disable RADIUS access?")} disabled={busy}>Suspend</Button>
+              <>
+                <Button variant="secondary" onClick={() => setEditOpen(true)}>Edit</Button>
+                <Button variant="secondary" onClick={() => setRenewOpen(true)} disabled={busy}>Renew</Button>
+                {customer.status === "suspended" ? (
+                  <Button onClick={() => action("reconnect", "Reconnect this customer and re-enable RADIUS access?")} disabled={busy}>Reconnect</Button>
+                ) : (
+                  <Button variant="danger" onClick={() => action("suspend", "Suspend this customer and disable RADIUS access?")} disabled={busy}>Suspend</Button>
+                )}
+                <Button variant="ghost" onClick={remove}>Delete</Button>
+              </>
             )}
-            <Button variant="ghost" onClick={remove}>Delete</Button>
           </>
         }
       />

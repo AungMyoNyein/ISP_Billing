@@ -27,11 +27,13 @@ function CustomersInner() {
   const [dnZone, setDnZone] = useState("");
   const [snOdb, setSnOdb] = useState("");
   const [planId, setPlanId] = useState("");
+  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [options, setOptions] = useState<FilterOptions | null>(null);
   const [plans, setPlans] = useState<ServicePlan[]>([]);
 
   const { data, page, lastPage, total, loading, error, setPage } = usePaginated<Customer>("/customers", {
     search, status, dn_zone: dnZone, sn_odb: snOdb, service_plan_id: planId,
+    include_deleted: includeDeleted ? "1" : undefined,
   });
 
   useEffect(() => {
@@ -78,6 +80,14 @@ function CustomersInner() {
             <option value="">All plans</option>
             {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={includeDeleted}
+              onChange={(e) => setIncludeDeleted(e.target.checked)}
+            />
+            Include deleted
+          </label>
         </div>
 
         <Table
@@ -86,7 +96,7 @@ function CustomersInner() {
           empty={data.length === 0}
         >
           {data.map((c) => (
-            <tr key={c.id} className="hover:bg-slate-50">
+            <tr key={c.id} className={c.deleted_at ? "bg-slate-50 text-slate-500" : "hover:bg-slate-50"}>
               <td className="px-4 py-3 font-medium text-blue-700">
                 <Link href={`/customers/${c.id}`}>{c.customer_code}</Link>
               </td>
@@ -97,7 +107,9 @@ function CustomersInner() {
               <td className="px-4 py-3">{c.sn_odb ?? "—"}</td>
               <td className="px-4 py-3">{c.service_plan?.name ?? "—"}</td>
               <td className="px-4 py-3">{formatDate(c.expiry_date)}</td>
-              <td className="px-4 py-3"><Badge value={c.status} /></td>
+              <td className="px-4 py-3">
+                {c.deleted_at ? <Badge value="deleted" /> : <Badge value={c.status} />}
+              </td>
             </tr>
           ))}
         </Table>

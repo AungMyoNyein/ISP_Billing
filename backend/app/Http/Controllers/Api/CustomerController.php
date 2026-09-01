@@ -21,7 +21,13 @@ class CustomerController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $customers = Customer::with(['servicePlan:id,name,price', 'router:id,name'])
+        $query = Customer::with(['servicePlan:id,name,price', 'router:id,name']);
+
+        if ($request->boolean('include_deleted')) {
+            $query->withTrashed();
+        }
+
+        $customers = $query
             ->filter($request->only(['search', 'status', 'dn_zone', 'sn_odb', 'service_plan_id', 'router_id']))
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 15));
@@ -130,6 +136,21 @@ class CustomerController extends Controller
         $this->billing->reconnectCustomer($customer);
 
         return response()->json($customer->fresh());
+    }
+
+    public function restore(Customer $customer): JsonResponse
+    {
+        abort_if(! $customer->trashed(), 422, 'Customer is not deleted.');
+
+        $customer->restore();
+        $this->radius->provision($customer);
+        if (in_array($customer->status, [Customer::STATUS_SUSPENDED, Customer::STATUS_EXPIRED, Customer::STATUS_DISABLED], true)) {
+            $this->radius->suspend($customer);
+        }
+
+        AuditLog::record('restored', $customer, ['customer_code' => $customer->customer_code]);
+
+        return response()->json($customer->load('servicePlan', 'router'));
     }
 
     /** SmartOLT ONU status/signal for the customer's ONU serial. */

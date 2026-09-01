@@ -129,4 +129,10 @@ class Customer extends Model
             ->when($filters['service_plan_id'] ?? null, fn (Builder $q, $id) => $q->where('service_plan_id', $id))
             ->when($filters['router_id'] ?? null, fn (Builder $q, $id) => $q->where('router_id', $id));
     }
+
+    /** Let detail/restore routes resolve soft-deleted customers by id. */
+    public function resolveRouteBinding($value, $field = null): ?static
+    {
+        return static::withTrashed()->where($field ?? $this->getRouteKeyName(), $value)->first();
+    }
 }

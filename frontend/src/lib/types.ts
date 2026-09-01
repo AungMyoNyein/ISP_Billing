@@ -71,6 +71,7 @@ export interface Customer {
   service_plan?: ServicePlan | null;
   router?: Router | null;
   online?: boolean;
+  deleted_at?: string | null;
 }
 
 export type InvoiceStatus = "paid" | "unpaid" | "suspended" | "cancelled";

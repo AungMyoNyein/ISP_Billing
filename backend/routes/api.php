@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
         Route::post('/customers/{customer}/suspend', [CustomerController::class, 'suspend']);
         Route::post('/customers/{customer}/reconnect', [CustomerController::class, 'reconnect']);
+        Route::post('/customers/{customer}/restore', [CustomerController::class, 'restore']);
     });
 
     // Service plans

@@ -51,6 +51,7 @@ const badgeTones: Record<string, string> = {
   unknown: "bg-slate-300",
   disabled: "bg-slate-300",
   cancelled: "bg-slate-300",
+  deleted: "bg-slate-400",
 };
 
 export function Badge({ value }: { value: string }) {
