@@ -152,8 +152,8 @@ class CustomerController extends Controller
     private function validateData(Request $request, ?Customer $customer = null): array
     {
         return $request->validate([
-            'customer_code' => ['required', 'string', 'max:50', Rule::unique('customers')->ignore($customer)->withoutTrashed()],
-            'username' => ['required', 'string', 'max:64', Rule::unique('customers')->ignore($customer)->withoutTrashed()],
+            'customer_code' => ['required', 'string', 'max:50', Rule::unique('customers')->ignore($customer)],
+            'username' => ['required', 'string', 'max:64', Rule::unique('customers')->ignore($customer)],
             'radius_password' => [$customer ? 'sometimes' : 'required', 'string', 'min:4', 'max:64'],
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
@@ -165,10 +165,14 @@ class CustomerController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
             'service_plan_id' => ['nullable', 'exists:service_plans,id'],
             'router_id' => ['nullable', 'exists:routers,id'],
-            'smartolt_onu_sn' => ['nullable', 'string', 'max:50'],
+            'smartolt_onu_sn' => ['nullable', 'string', 'max:50', Rule::unique('customers')->ignore($customer)],
             'framed_ip_address' => ['nullable', 'ip'],
             'activation_date' => ['nullable', 'date'],
             'expiry_date' => ['nullable', 'date'],
+        ], [
+            'customer_code.unique' => 'This customer ID is already in use.',
+            'username.unique' => 'This PPPoE username is already in use.',
+            'smartolt_onu_sn.unique' => 'This ONU serial is already assigned to another customer.',
         ]);
     }
 }
